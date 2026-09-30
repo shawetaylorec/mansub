@@ -259,6 +259,10 @@ a.btn{text-decoration:none}
           <span class="v" id="alifVal">—</span>
           <span class="hint" id="alifSub">Pick the Alif tool and drag along the alif.</span>
         </div>
+        <div class="row">
+          <label class="switch"><input type="checkbox" id="alifOn" checked> Show alif measure</label>
+          <kbd style="font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">H</kbd>
+        </div>
       </div>
 
       <div class="sec">
@@ -307,6 +311,11 @@ a.btn{text-decoration:none}
       <div class="sec">
         <h2>Ink</h2>
         <div class="swatches" id="inkSw"></div>
+        <div class="row" style="justify-content:flex-start;gap:6px">
+          <span style="margin-right:auto">Colour all</span>
+          <button class="btn" id="paintLines" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Lines</button>
+          <button class="btn" id="paintCircles" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Circles</button>
+        </div>
         <div class="row"><span>Thickness</span><input type="range" id="thick" min="1" max="40" value="3"><span class="num" id="thickV">3px</span></div>
         <div class="row"><span>Circles read as</span>
           <select id="circMode"><option value="diameter" selected>Diameter</option><option value="radius">Radius</option></select>
@@ -331,6 +340,7 @@ a.btn{text-decoration:none}
         <h2>Shortcuts</h2>
         <p class="hint">
           <b>Shift</b> while drawing — snap a line to 15° steps, an alif to true vertical.<br>
+          <b>H</b> hides or shows the alif measure; the grid stays.<br>
           <b>Scroll</b> to zoom, <b>drag empty space</b> or hold <b>Space</b> to pan, <b>0</b> to fit.<br>
           <b>Drag the dial</b> under the image to straighten it &mdash; hold <b>Shift</b>
           for hair-fine steps, or nudge a tenth of a degree with <b>[</b> and <b>]</b>.<br>
@@ -410,6 +420,7 @@ var S = {
   rot: 0,                     // the sheet is turned under a square grid
   crop: true,                 // and trimmed back to a rectangle as it turns
   alif: null,                 // {x1,y1,x2,y2}
+  alifShown: true,            // hidden, it still sets the scale and the grid
   shapes: [],                 // {id,type,color,...}
   sel: null,
   tool: "select",
@@ -742,7 +753,7 @@ function drawLabel(c, x, y, text, color, px){
 }
 
 function drawAlif(c, env){
-  if (!S.alif) return;
+  if (!S.alif || !S.alifShown) return;
   var a = S.alif, lw = env.lw;
   var dx = a.x2 - a.x1, dy = a.y2 - a.y1, L = Math.hypot(dx, dy) || 1;
   var nx = -dy / L, ny = dx / L;              // unit normal
@@ -891,7 +902,7 @@ function hitTest(p){
       if (d < s.r) return {id: s.id, part: "body"};
     }
   }
-  if (S.alif){
+  if (S.alif && S.alifShown){
     var a = S.alif;
     if (dist(p.x, p.y, a.x1, a.y1) < tol) return {id: "alif", part: "p1"};
     if (dist(p.x, p.y, a.x2, a.y2) < tol) return {id: "alif", part: "p2"};
@@ -1042,6 +1053,7 @@ cv.addEventListener("pointerdown", function(ev){
 
   if (S.tool === "alif"){
     snapshot();
+    setAlifShown(true);             // measuring again means you want to see it
     S.alif = {x1: p.x, y1: p.y, x2: p.x, y2: p.y};
     S.sel = "alif";
     drag = {mode: "draw-end", id: "alif", fresh: true};
@@ -1261,7 +1273,30 @@ function refreshSwatches(){
   buildSwatches(document.getElementById("gridSw"), GRID_PALETTE, function(){ return S.gridColor; }, function(hex){
     S.gridColor = hex; refreshSwatches(); draw();
   }, true);
+  document.querySelectorAll(".paintDot").forEach(function(d){ d.style.background = S.color; });
 }
+
+/* Recolour every mark of one kind at once, in the current ink. */
+function paintAll(type){
+  var hit = S.shapes.filter(function(s){ return s.type === type; });
+  if (!hit.length) return;
+  snapshot();
+  hit.forEach(function(s){ s.color = S.color; });
+  draw(); renderPanel();
+}
+document.getElementById("paintLines").addEventListener("click", function(){ paintAll("line"); });
+document.getElementById("paintCircles").addEventListener("click", function(){ paintAll("circle"); });
+
+/* The alif can be tucked away once measured: it still sets the scale and
+   the grid, so a page of several alifs can be drawn without the guide. */
+function setAlifShown(on){
+  S.alifShown = on;
+  document.getElementById("alifOn").checked = on;
+  if (!on && S.sel === "alif") S.sel = null;
+}
+document.getElementById("alifOn").addEventListener("change", function(e){
+  setAlifShown(e.target.checked); draw(); renderPanel();
+});
 
 /* ---------------- controls ---------------- */
 document.querySelectorAll(".tool").forEach(function(b){
@@ -1316,6 +1351,7 @@ document.addEventListener("keydown", function(ev){
     document.getElementById("gridOn").checked = S.grid.on;
     draw();
   }
+  else if (k === "h"){ setAlifShown(!S.alifShown); draw(); renderPanel(); }
   else if (k === "0") fitView();
   else if (ev.key === "["){ ev.preventDefault(); rotateBy(-Math.PI / 1800); }
   else if (ev.key === "]"){ ev.preventDefault(); rotateBy(Math.PI / 1800); }
@@ -1331,6 +1367,7 @@ function loadImage(src, name){
   im.onload = function(){
     S.img = im; S.name = name; S.isSample = false;
     S.alif = null; S.shapes = []; S.sel = null; undoStack = [];
+    setAlifShown(true);
     S.rot = 0; renderRot();
     S.thick = Math.max(2, Math.round(Math.hypot(im.naturalWidth, im.naturalHeight) / 700));
     var th = document.getElementById("thick");

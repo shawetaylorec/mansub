@@ -42,6 +42,10 @@ uploaded anywhere; the image stays on your machine.
    off to keep the whole tilted sheet, blank corners and all.
 3. Pick the **Alif** tool and drag from the top of an alif to its foot. Hold `Shift`
    to lock the measurement to true vertical.
+
+   Once it is set, untick **Show alif measure** (or press `H`) to hide the measure
+   itself. The grid and every ratio still follow it — it is only out of sight, which
+   helps when you are drawing several alifs of your own over the page.
 4. A grid appears, subdivided into equal parts of that alif — 8 by default, with
    5 and 9 offered because those are the usual nuqta counts for naskh and thuluth.
    Heavier lines fall on whole alifs.
@@ -96,9 +100,11 @@ ratio, which is often the more honest number of the two.
 | `Ctrl+Z` | undo |
 | Drag the dial | straighten · `Shift` for hair-fine · `[` `]` nudge a tenth of a degree |
 | `G` | show/hide the grid |
+| `H` | show/hide the alif measure (the grid stays) |
 
 Clicking a colour recolours the selected shape as well as setting the colour for
-the next one. The palette is deliberately fluorescent so the marks stay legible
+the next one. **Colour all · Lines / Circles** in the Ink panel paints every line,
+or every circle, in the current colour at once. The palette is deliberately fluorescent so the marks stay legible
 over ink and toned paper. All strokes share one thickness, set in the Ink panel.
 The grid is black by default, since most scans are pale; it can be set to white or
 any of the fluorescents, and its weight is a slider.
