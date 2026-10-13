@@ -60,6 +60,18 @@ uploaded anywhere; the image stays on your machine.
    upscale adds no detail to the photograph, but it does keep the rules and labels
    crisp at print size.
 
+## The key
+
+**Add key** (or `K`) places a key on the sheet: a vertical alif standing in its
+circle, the dā'ira, one alif tall. It follows the pointer until you click, and
+wherever you drop or drag it, it snaps so the alif runs along a grid column from one
+grid row to another.
+
+It takes its colours from the page rather than the Ink panel: the circle is drawn in
+whichever colour most of your circles use, and the alif in whichever colour most of
+your horizontal lines use (any lines, if none are horizontal). Recolour the marks and
+the key follows. `Move key` re-places it, `Remove` or `Backspace` takes it away.
+
 ## Working the other way round
 
 Measuring answers *what is this?* The **Exact ratios** panel answers *where does a
@@ -93,6 +105,7 @@ ratio, which is often the more honest number of the two.
 | | |
 |---|---|
 | `V` `A` `L` `C` | Select, Alif, Line, Circle |
+| `K` | place the key |
 | `Shift` while drawing | snap a line to 15° steps; snap an alif to vertical |
 | Drag empty space, or hold `Space` | pan |
 | Scroll | zoom · `0` fits the image to the view |

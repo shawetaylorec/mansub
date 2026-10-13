@@ -263,6 +263,14 @@ a.btn{text-decoration:none}
           <label class="switch"><input type="checkbox" id="alifOn" checked> Show alif measure</label>
           <kbd style="font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">H</kbd>
         </div>
+        <div class="row" style="justify-content:flex-start;gap:6px">
+          <button class="btn" id="keyBtn" style="font-size:12px;padding:5px 9px" aria-pressed="false">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v12"/></svg>
+            <span id="keyBtnT">Add key</span></button>
+          <button class="btn" id="keyDel" style="font-size:12px;padding:5px 9px" hidden>Remove</button>
+          <kbd style="margin-left:auto;font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">K</kbd>
+        </div>
+        <p class="hint" id="keyHint"></p>
       </div>
 
       <div class="sec">
@@ -341,6 +349,7 @@ a.btn{text-decoration:none}
         <p class="hint">
           <b>Shift</b> while drawing — snap a line to 15° steps, an alif to true vertical.<br>
           <b>H</b> hides or shows the alif measure; the grid stays.<br>
+          <b>K</b> places the key &mdash; an alif in its circle, snapped to the grid.<br>
           <b>Scroll</b> to zoom, <b>drag empty space</b> or hold <b>Space</b> to pan, <b>0</b> to fit.<br>
           <b>Drag the dial</b> under the image to straighten it &mdash; hold <b>Shift</b>
           for hair-fine steps, or nudge a tenth of a degree with <b>[</b> and <b>]</b>.<br>
@@ -422,6 +431,7 @@ var S = {
   alif: null,                 // {x1,y1,x2,y2}
   alifShown: true,            // hidden, it still sets the scale and the grid
   shapes: [],                 // {id,type,color,...}
+  key: null,                  // {type:"key",cx,cy} — drawn snapped to the grid
   sel: null,
   tool: "select",
   color: PALETTE[0][1],
@@ -577,6 +587,7 @@ function rotateBy(delta){
     else turn(s, "cx", "cy");
   });
   if (S.alif){ turn(S.alif, "x1", "y1"); turn(S.alif, "x2", "y2"); }
+  if (S.key) turn(S.key, "cx", "cy");
   S.rot += delta;
   if (Math.abs(S.rot) < 1e-9) S.rot = 0;
   renderRot();
@@ -690,19 +701,25 @@ function roundRect(c, x, y, w, h, r){
   c.arcTo(x, y, x + w, y, r); c.closePath();
 }
 
-function drawGrid(c, env){
-  if (!S.grid.on || alifLen() <= 0) return;
-  var step = alifLen() / S.grid.div;
-  if (!env.forExport && step * S.view.scale < 3.5) return;
-
+/* The grid's own frame: it starts at the head of the alif, and is square to
+   the canvas unless it has been tilted to follow the alif. */
+function gridFrame(){
   var phi = 0;
   if (S.grid.align){
     var dx = S.alif.x2 - S.alif.x1, dy = S.alif.y2 - S.alif.y1;
     if (dy < 0) { dx = -dx; dy = -dy; }
     phi = Math.atan2(-dx, dy);
   }
-  var ox = S.alif.x1, oy = S.alif.y1;
-  var cs = Math.cos(phi), sn = Math.sin(phi);
+  return {ox: S.alif.x1, oy: S.alif.y1, phi: phi, cs: Math.cos(phi), sn: Math.sin(phi),
+          step: alifLen() / S.grid.div};
+}
+
+function drawGrid(c, env){
+  if (!S.grid.on || alifLen() <= 0) return;
+  var F = gridFrame(), step = F.step;
+  if (!env.forExport && step * S.view.scale < 3.5) return;
+
+  var phi = F.phi, ox = F.ox, oy = F.oy, cs = F.cs, sn = F.sn;
 
   // visible region, expressed in the grid's own frame
   var pts = [[env.x0, env.y0], [env.x1, env.y0], [env.x0, env.y1], [env.x1, env.y1]];
@@ -786,6 +803,54 @@ function handle(c, x, y, env){
   c.restore();
 }
 
+/* ---------------- the key ----------------
+   A legend for the sheet: an alif standing in its circle, the dā'ira. It is
+   always one alif tall, its alif runs from one grid line to another so it
+   sits neatly on the grid, and it borrows its colours from the marks already
+   on the page, so it reads as part of the same set. */
+function majorityColor(list, fallback){
+  var n = {}, best = null;
+  list.forEach(function(s){
+    n[s.color] = (n[s.color] || 0) + 1;
+    if (!best || n[s.color] > n[best]) best = s.color;
+  });
+  return best || fallback;
+}
+function isHorizontal(s){
+  return Math.abs(s.y2 - s.y1) <= Math.abs(s.x2 - s.x1) * Math.tan(20 * Math.PI / 180);
+}
+function keyColors(){
+  var circles = S.shapes.filter(function(s){ return s.type === "circle"; });
+  var lines = S.shapes.filter(function(s){ return s.type === "line"; });
+  var flat = lines.filter(isHorizontal);
+  return {ring: majorityColor(circles, S.color),
+          stem: majorityColor(flat.length ? flat : lines, S.color)};
+}
+/* Where the key really sits: its stem on the nearest grid column, its head
+   on the nearest grid row, whatever point it was dropped at. */
+function keyGeom(k){
+  var F = gridFrame(), L = alifLen(), st = F.step;
+  var X = k.cx - F.ox, Y = k.cy - F.oy;
+  var lx = Math.round((X * F.cs + Y * F.sn) / st) * st;
+  var top = Math.round((-X * F.sn + Y * F.cs - L / 2) / st) * st;
+  function back(a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
+  var mid = back(lx, top + L / 2);
+  return {cx: mid.x, cy: mid.y, r: L / 2, top: back(lx, top), foot: back(lx, top + L)};
+}
+function drawKey(c, k, env){
+  if (!k || alifLen() <= 0) return;
+  var g = keyGeom(k), col = keyColors();
+  c.save();
+  c.lineWidth = env.lw;
+  c.strokeStyle = col.ring;
+  c.beginPath(); c.arc(g.cx, g.cy, g.r, 0, Math.PI*2); c.stroke();
+  c.strokeStyle = col.stem;
+  c.lineCap = "butt";                 // the alif ends exactly on the circle
+  c.beginPath(); c.moveTo(g.top.x, g.top.y); c.lineTo(g.foot.x, g.foot.y); c.stroke();
+  if (!env.forExport && k === S.key && S.sel === "key") handle(c, g.cx, g.cy, env);
+  c.restore();
+}
+
 function drawShape(c, s, env){
   c.save();
   c.strokeStyle = s.color;
@@ -824,6 +889,7 @@ function drawShape(c, s, env){
 function overlay(c, env){
   drawGrid(c, env);
   for (var i = 0; i < S.shapes.length; i++) drawShape(c, S.shapes[i], env);
+  drawKey(c, S.key, env);
   drawAlif(c, env);
 }
 
@@ -864,11 +930,11 @@ function draw(){
   drawSheet(ctx);
   overlay(ctx, env);
   if (S.pending && S.ghost){
-    var g = makeStamp(S.ghost);
     ctx.save();
     ctx.globalAlpha = 0.6;
     ctx.setLineDash([env.lw * 2.5, env.lw * 2.5]);
-    drawShape(ctx, g, env);
+    if (S.pending.kind === "key") drawKey(ctx, {cx: S.ghost.x, cy: S.ghost.y}, env);
+    else drawShape(ctx, makeStamp(S.ghost), env);
     ctx.restore();
   }
   ctx.restore();
@@ -890,6 +956,13 @@ function draw(){
 /* ---------------- hit testing ---------------- */
 function hitTest(p){
   var tol = 10 / S.view.scale;
+  // the key is drawn over the shapes; only its ring and stem catch the pointer
+  if (S.key && alifLen() > 0){
+    var kg = keyGeom(S.key);
+    if (Math.abs(dist(p.x, p.y, kg.cx, kg.cy) - kg.r) < tol ||
+        distToSeg(p.x, p.y, kg.top.x, kg.top.y, kg.foot.x, kg.foot.y) < tol)
+      return {id: "key", part: "body"};
+  }
   for (var i = S.shapes.length - 1; i >= 0; i--){
     var s = S.shapes[i];
     if (s.type === "line"){
@@ -912,19 +985,20 @@ function hitTest(p){
 }
 function byId(id){
   if (id === "alif") return S.alif;
+  if (id === "key") return S.key;
   for (var i = 0; i < S.shapes.length; i++) if (S.shapes[i].id === id) return S.shapes[i];
   return null;
 }
 
 /* ---------------- undo ---------------- */
 function snapshot(){
-  undoStack.push(JSON.stringify({a: S.alif, s: S.shapes, r: S.rot}));
+  undoStack.push(JSON.stringify({a: S.alif, s: S.shapes, k: S.key, r: S.rot}));
   if (undoStack.length > 80) undoStack.shift();
 }
 function undo(){
   if (!undoStack.length) return;
   var st = JSON.parse(undoStack.pop());
-  S.alif = st.a; S.shapes = st.s; S.sel = null;
+  S.alif = st.a; S.shapes = st.s; S.key = st.k || null; S.sel = null;
   S.rot = st.r || 0;               // marks and sheet are only meaningful together
   renderRot();
   draw(); renderPanel();
@@ -967,12 +1041,55 @@ function cancelStamp(){
   if (!S.pending) return;
   S.pending = null; S.ghost = null; armedKey = null;
   cv.style.cursor = (S.tool === "select") ? "grab" : "crosshair";
-  renderRatios(); updateStampHint(); draw();
+  renderRatios(); updateStampHint(); renderKey(); draw();
 }
+
+/* The key is placed the same way as an exact ratio: it follows the pointer,
+   already snapped, until a click sets it down. */
+function armKey(){
+  if (alifLen() <= 0){
+    document.getElementById("keyHint").textContent =
+      "Measure the alif first — the key is one alif tall.";
+    return;
+  }
+  S.pending = {kind: "key", label: "key"};
+  S.ghost = null;
+  armedKey = "key";
+  S.sel = null;
+  cv.style.cursor = "copy";
+  renderRatios(); updateStampHint(); renderKey();
+  draw();
+}
+
+function renderKey(){
+  var placing = !!(S.pending && S.pending.kind === "key");
+  var b = document.getElementById("keyBtn");
+  b.setAttribute("aria-pressed", String(placing));
+  b.style.borderColor = placing ? "var(--gold)" : "";
+  b.style.color = placing ? "var(--gold)" : "";
+  document.getElementById("keyBtnT").textContent =
+    placing ? "Placing…" : (S.key ? "Move key" : "Add key");
+  document.getElementById("keyDel").hidden = !S.key;
+  var h = document.getElementById("keyHint");
+  if (placing) h.innerHTML = "Click to set the key down; it snaps to the grid. <b>Esc</b> cancels.";
+  else if (alifLen() <= 0) h.innerHTML = "Once the alif is measured, add a key: an alif in its circle.";
+  else if (S.key) h.innerHTML = "Drag it to move it along the grid. Its circle and alif take the colours " +
+    "most used for circles and horizontal lines on the page.";
+  else h.innerHTML = "An alif standing in its circle, one alif tall, as a key to the sheet.";
+}
+document.getElementById("keyBtn").addEventListener("click", function(){
+  if (S.pending && S.pending.kind === "key") cancelStamp(); else armKey();
+});
+document.getElementById("keyDel").addEventListener("click", function(){
+  if (!S.key) return;
+  snapshot(); S.key = null;
+  if (S.sel === "key") S.sel = null;
+  draw(); renderPanel();
+});
 
 function updateStampHint(){
   var h = document.getElementById("stampHint");
-  if (S.pending){
+  if (S.pending && S.pending.kind !== "key"){
     h.innerHTML = "Click on the image to place a <b>" + S.pending.label + " alif</b> " +
       S.pending.kind + ". <b>Esc</b> cancels.";
   } else if (alifLen() <= 0){
@@ -1006,7 +1123,7 @@ document.querySelectorAll("#stampShape button").forEach(function(b){
       o.setAttribute("aria-pressed", String(o === b));
     });
     document.getElementById("stampOrient").hidden = (stampKind !== "line");
-    if (S.pending){ S.pending.kind = stampKind; updateStampHint(); draw(); }
+    if (S.pending && S.pending.kind !== "key"){ S.pending.kind = stampKind; updateStampHint(); draw(); }
   });
 });
 document.querySelectorAll("#stampOrient button").forEach(function(b){
@@ -1015,7 +1132,7 @@ document.querySelectorAll("#stampOrient button").forEach(function(b){
     document.querySelectorAll("#stampOrient button").forEach(function(o){
       o.setAttribute("aria-pressed", String(o === b));
     });
-    if (S.pending){ S.pending.orient = stampOrient; draw(); }
+    if (S.pending && S.pending.kind !== "key"){ S.pending.orient = stampOrient; draw(); }
   });
 });
 document.getElementById("cGo").addEventListener("click", function(){
@@ -1040,10 +1157,15 @@ cv.addEventListener("pointerdown", function(ev){
 
   if (S.pending){
     snapshot();
-    var st = makeStamp(p);
-    st.id = nextId++;
-    S.shapes.push(st);
-    S.sel = st.id;
+    if (S.pending.kind === "key"){
+      S.key = {type: "key", cx: p.x, cy: p.y};
+      S.sel = "key";
+    } else {
+      var st = makeStamp(p);
+      st.id = nextId++;
+      S.shapes.push(st);
+      S.sel = st.id;
+    }
     S.pending = null; S.ghost = null; armedKey = null;
     setTool("select");
     renderRatios(); updateStampHint();
@@ -1141,7 +1263,7 @@ cv.addEventListener("pointermove", function(ev){
   }
   else if (drag.mode === "move"){
     var mx = p.x - drag.px, my = p.y - drag.py, b = drag.o;
-    if (o.type === "circle"){ o.cx = b.cx + mx; o.cy = b.cy + my; }
+    if (o.type === "circle" || o.type === "key"){ o.cx = b.cx + mx; o.cy = b.cy + my; }
     else { o.x1 = b.x1 + mx; o.y1 = b.y1 + my; o.x2 = b.x2 + mx; o.y2 = b.y2 + my; }
   }
   draw(); renderPanel();
@@ -1197,6 +1319,7 @@ function renderPanel(){
   var L = alifLen();
   var ready = L > 0;
   if (ready !== ratiosReady){ ratiosReady = ready; renderRatios(); updateStampHint(); }
+  renderKey();
   document.getElementById("alifVal").innerHTML = L > 0
     ? Math.round(L) + " <small>px</small>"
     : "&mdash;";
@@ -1265,7 +1388,8 @@ function buildSwatches(host, list, current, onPick, small){
 function refreshSwatches(){
   buildSwatches(document.getElementById("inkSw"), PALETTE, function(){ return S.color; }, function(hex){
     S.color = hex;
-    var o = S.sel && S.sel !== "alif" ? byId(S.sel) : null;
+    // the key takes its colours from the page, so it is never painted directly
+    var o = S.sel && S.sel !== "alif" && S.sel !== "key" ? byId(S.sel) : null;
     if (o){ snapshot(); o.color = hex; }
     else if (S.sel === "alif"){ S.alifColor = hex; }
     refreshSwatches(); draw(); renderPanel();
@@ -1336,6 +1460,7 @@ document.addEventListener("keydown", function(ev){
     if (S.sel){
       ev.preventDefault(); snapshot();
       if (S.sel === "alif") S.alif = null;
+      else if (S.sel === "key") S.key = null;
       else S.shapes = S.shapes.filter(function(s){ return s.id !== S.sel; });
       S.sel = null; draw(); renderPanel();
     }
@@ -1346,6 +1471,7 @@ document.addEventListener("keydown", function(ev){
   else if (k === "a") setTool("alif");
   else if (k === "l") setTool("line");
   else if (k === "c") setTool("circle");
+  else if (k === "k"){ if (S.pending && S.pending.kind === "key") cancelStamp(); else armKey(); }
   else if (k === "g"){
     S.grid.on = !S.grid.on;
     document.getElementById("gridOn").checked = S.grid.on;
@@ -1366,7 +1492,7 @@ function loadImage(src, name){
   var im = new Image();
   im.onload = function(){
     S.img = im; S.name = name; S.isSample = false;
-    S.alif = null; S.shapes = []; S.sel = null; undoStack = [];
+    S.alif = null; S.shapes = []; S.key = null; S.sel = null; undoStack = [];
     setAlifShown(true);
     S.rot = 0; renderRot();
     S.thick = Math.max(2, Math.round(Math.hypot(im.naturalWidth, im.naturalHeight) / 700));
