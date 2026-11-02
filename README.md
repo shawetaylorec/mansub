@@ -31,9 +31,10 @@ uploaded anywhere; the image stays on your machine.
    readout turns gold once you are off it, and clicking the readout straightens back.
    `90°` handles a photograph that came in sideways.
 
-   The grid stays square while the photograph turns under it, so you straighten until
-   the script lines up rather than tilting the grid to chase it. Marks already placed
-   turn with the sheet and stay on the letters they measure.
+   The alif and its grid stay together while the photograph turns under them, so you
+   straighten until the script lines up rather than tilting the grid to chase it. Lines
+   and circles already placed turn with the sheet and stay on the letters they measure;
+   the alif, the key and the dots stay on the grid.
 
    **Crop** (on by default) trims the turned sheet back to the largest upright
    rectangle that still fits inside it, the way straightening works in Google Photos —
@@ -63,9 +64,9 @@ uploaded anywhere; the image stays on your machine.
 ## The key
 
 **Add key** (or `K`) places a key on the sheet: the dā'ira, a circle one alif
-across, with a horizontal line one alif long running through its centre. It follows
+across, with a vertical line one alif long running through its centre. It follows
 the pointer until you click, and wherever you drop or drag it, it snaps so the line
-lies along a grid row and runs from one grid column to another.
+lies along a grid column and runs from one grid row to another.
 
 It takes its colours from the page rather than the Ink panel: the circle is drawn in
 whichever colour most of your circles use, and the line in whichever colour most of
@@ -140,8 +141,8 @@ any of the fluorescents, and its weight is a slider.
 - Measurements are in image pixels, so they are only as accurate as the photograph.
   A page shot at an angle will not give honest ratios — shoot flat-on.
 - **Circles read as** switches the measured quantity between diameter and radius.
-- **Tilt grid to alif** rotates the grid to follow a slanted alif rather than the
-  page edges.
+- The grid always runs along the alif: tilt the alif measure and the grid turns
+  with it, so the alif always sits exactly on the grid.
 - The app opens on a sample specimen set in [Amiri](https://github.com/alif-type/amiri),
   with the alif already measured and a circle whose diameter is that alif — the
   classical dā'ira. Open your own image to replace it.

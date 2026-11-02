@@ -265,7 +265,7 @@ a.btn{text-decoration:none}
         </div>
         <div class="row" style="justify-content:flex-start;gap:6px">
           <button class="btn" id="keyBtn" style="font-size:12px;padding:5px 9px" aria-pressed="false">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12"/></svg>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v12"/></svg>
             <span id="keyBtnT">Add key</span></button>
           <button class="btn" id="keyDel" style="font-size:12px;padding:5px 9px" hidden>Remove</button>
           <kbd style="margin-left:auto;font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">K</kbd>
@@ -320,7 +320,6 @@ a.btn{text-decoration:none}
           </select>
         </div>
         <div class="row"><span>Opacity</span><input type="range" id="gridOp" min="4" max="70" value="28"><span class="num" id="gridOpV">28%</span></div>
-        <div class="row"><label class="switch"><input type="checkbox" id="gridAlign"> Tilt grid to alif</label></div>
         <div class="stack"><span>Colour</span><div class="swatches" id="gridSw"></div></div>
       </div>
 
@@ -435,7 +434,7 @@ var GRID_PALETTE = [["Black", "#000000"], ["White", "#FFFFFF"]].concat(PALETTE);
 var S = {
   img: null, name: "Sample specimen", isSample: true,
   view: {scale: 1, tx: 0, ty: 0},
-  rot: 0,                     // the sheet is turned under a square grid
+  rot: 0,                     // the sheet is turned under the alif and its grid
   crop: true,                 // and trimmed back to a rectangle as it turns
   alif: null,                 // {x1,y1,x2,y2}
   alifShown: true,            // hidden, it still sets the scale and the grid
@@ -447,7 +446,7 @@ var S = {
   color: PALETTE[0][1],
   alifColor: "#FFFFFF",
   gridColor: "#000000",
-  grid: {on: true, div: 8, op: 0.28, align: false},
+  grid: {on: true, div: 8, op: 0.28},
   pending: null,              // an exact ratio waiting to be placed
   ghost: null,                // where the pointer last was, while placing
   thick: 3,
@@ -519,10 +518,10 @@ function canvasLabel(s){
 }
 
 /* ---------------- straightening ----------------
-   The image is drawn turned about its own centre, and the marks are turned
-   with it, so they stay where you put them. The grid stays square to the
-   canvas — which is the point: you turn the photograph until the script
-   lines up with the grid, rather than tilting the grid to chase the script. */
+   The image is drawn turned about its own centre, and the lines and circles
+   are turned with it, so they stay on the letters they measure. The alif and
+   its grid stay put — which is the point: you turn the photograph until the
+   script lines up with the grid, and the alif never leaves the grid. */
 function sheetCorners(){
   var iw = S.img.naturalWidth, ih = S.img.naturalHeight;
   var co = Math.cos(S.rot), si = Math.sin(S.rot), hw = iw / 2, hh = ih / 2;
@@ -596,9 +595,8 @@ function rotateBy(delta){
     if (s.type === "line"){ turn(s, "x1", "y1"); turn(s, "x2", "y2"); }
     else turn(s, "cx", "cy");
   });
-  if (S.alif){ turn(S.alif, "x1", "y1"); turn(S.alif, "x2", "y2"); }
-  if (S.key) turn(S.key, "cx", "cy");
-  if (S.dots) turn(S.dots, "cx", "cy");
+  // the alif, and the grid, key and dots that hang from it, stay put: the
+  // sheet turns under them, so straightening never knocks the alif off the grid
   S.rot += delta;
   if (Math.abs(S.rot) < 1e-9) S.rot = 0;
   renderRot();
@@ -712,15 +710,13 @@ function roundRect(c, x, y, w, h, r){
   c.arcTo(x, y, x + w, y, r); c.closePath();
 }
 
-/* The grid's own frame: it starts at the head of the alif, and is square to
-   the canvas unless it has been tilted to follow the alif. */
+/* The grid's own frame: it starts at the head of the alif and its columns
+   run along the alif, so the alif always lies on the grid, however it is
+   turned. */
 function gridFrame(){
-  var phi = 0;
-  if (S.grid.align){
-    var dx = S.alif.x2 - S.alif.x1, dy = S.alif.y2 - S.alif.y1;
-    if (dy < 0) { dx = -dx; dy = -dy; }
-    phi = Math.atan2(-dx, dy);
-  }
+  var dx = S.alif.x2 - S.alif.x1, dy = S.alif.y2 - S.alif.y1;
+  if (dy < 0) { dx = -dx; dy = -dy; }
+  var phi = Math.atan2(-dx, dy);
   return {ox: S.alif.x1, oy: S.alif.y1, phi: phi, cs: Math.cos(phi), sn: Math.sin(phi),
           step: alifLen() / S.grid.div};
 }
@@ -816,8 +812,8 @@ function handle(c, x, y, env){
 
 /* ---------------- the key ----------------
    A legend for the sheet: the dā'ira, a circle one alif across, with a
-   horizontal line one alif long running through its centre. The line lies
-   along a grid row and runs from one grid column to another, so it sits
+   vertical line one alif long running through its centre. The line lies
+   along a grid column and runs from one grid row to another, so it sits
    neatly on the grid, and the key borrows its colours from the marks
    already on the page, so it reads as part of the same set. */
 function majorityColor(list, fallback){
@@ -841,14 +837,14 @@ function toGrid(F, x, y){
 }
 function fromGrid(F, a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
 
-/* Where the key really sits: its line on the nearest grid row, its ends on
-   the nearest grid columns, whatever point it was dropped at. */
+/* Where the key really sits: its line on the nearest grid column, its ends
+   on the nearest grid rows, whatever point it was dropped at. */
 function keyGeom(k){
   var F = gridFrame(), L = alifLen(), st = F.step, q = toGrid(F, k.cx, k.cy);
-  var left = Math.round((q.a - L / 2) / st) * st;
-  var row = Math.round(q.b / st) * st;
-  var mid = fromGrid(F, left + L / 2, row);
-  return {cx: mid.x, cy: mid.y, r: L / 2, p1: fromGrid(F, left, row), p2: fromGrid(F, left + L, row)};
+  var col = Math.round(q.a / st) * st;
+  var top = Math.round((q.b - L / 2) / st) * st;
+  var mid = fromGrid(F, col, top + L / 2);
+  return {cx: mid.x, cy: mid.y, r: L / 2, p1: fromGrid(F, col, top), p2: fromGrid(F, col, top + L)};
 }
 function drawKey(c, k, env){
   if (!k || alifLen() <= 0) return;
@@ -1516,7 +1512,6 @@ document.getElementById("gridOp").addEventListener("input", function(e){
   document.getElementById("gridOpV").textContent = e.target.value + "%";
   draw();
 });
-document.getElementById("gridAlign").addEventListener("change", function(e){ S.grid.align = e.target.checked; draw(); });
 document.getElementById("thick").addEventListener("input", function(e){
   S.thick = +e.target.value;
   document.getElementById("thickV").textContent = e.target.value + "px";
