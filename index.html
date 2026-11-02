@@ -265,12 +265,20 @@ a.btn{text-decoration:none}
         </div>
         <div class="row" style="justify-content:flex-start;gap:6px">
           <button class="btn" id="keyBtn" style="font-size:12px;padding:5px 9px" aria-pressed="false">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v12"/></svg>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12"/></svg>
             <span id="keyBtnT">Add key</span></button>
           <button class="btn" id="keyDel" style="font-size:12px;padding:5px 9px" hidden>Remove</button>
           <kbd style="margin-left:auto;font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">K</kbd>
         </div>
         <p class="hint" id="keyHint"></p>
+        <div class="row" style="justify-content:flex-start;gap:6px">
+          <button class="btn" id="dotsBtn" style="font-size:12px;padding:5px 9px" aria-pressed="false">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0.5l2.5 2.5L8 5.5 5.5 3zM8 5.5l2.5 2.5L8 10.5 5.5 8zM8 10.5l2.5 2.5L8 15.5 5.5 13z"/></svg>
+            <span id="dotsBtnT">Add dots</span></button>
+          <button class="btn" id="dotsDel" style="font-size:12px;padding:5px 9px" hidden>Remove</button>
+          <kbd style="margin-left:auto;font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">N</kbd>
+        </div>
+        <p class="hint" id="dotsHint"></p>
       </div>
 
       <div class="sec">
@@ -349,7 +357,8 @@ a.btn{text-decoration:none}
         <p class="hint">
           <b>Shift</b> while drawing — snap a line to 15° steps, an alif to true vertical.<br>
           <b>H</b> hides or shows the alif measure; the grid stays.<br>
-          <b>K</b> places the key &mdash; an alif in its circle, snapped to the grid.<br>
+          <b>K</b> places the key &mdash; a circle with a line through it, snapped to the grid.<br>
+          <b>N</b> places the alif as a column of rhombic dots, one to each grid square.<br>
           <b>Scroll</b> to zoom, <b>drag empty space</b> or hold <b>Space</b> to pan, <b>0</b> to fit.<br>
           <b>Drag the dial</b> under the image to straighten it &mdash; hold <b>Shift</b>
           for hair-fine steps, or nudge a tenth of a degree with <b>[</b> and <b>]</b>.<br>
@@ -432,6 +441,7 @@ var S = {
   alifShown: true,            // hidden, it still sets the scale and the grid
   shapes: [],                 // {id,type,color,...}
   key: null,                  // {type:"key",cx,cy} — drawn snapped to the grid
+  dots: null,                 // {type:"dots",cx,cy,color} — the alif as a column of nuqat
   sel: null,
   tool: "select",
   color: PALETTE[0][1],
@@ -588,6 +598,7 @@ function rotateBy(delta){
   });
   if (S.alif){ turn(S.alif, "x1", "y1"); turn(S.alif, "x2", "y2"); }
   if (S.key) turn(S.key, "cx", "cy");
+  if (S.dots) turn(S.dots, "cx", "cy");
   S.rot += delta;
   if (Math.abs(S.rot) < 1e-9) S.rot = 0;
   renderRot();
@@ -804,10 +815,11 @@ function handle(c, x, y, env){
 }
 
 /* ---------------- the key ----------------
-   A legend for the sheet: an alif standing in its circle, the dā'ira. It is
-   always one alif tall, its alif runs from one grid line to another so it
-   sits neatly on the grid, and it borrows its colours from the marks already
-   on the page, so it reads as part of the same set. */
+   A legend for the sheet: the dā'ira, a circle one alif across, with a
+   horizontal line one alif long running through its centre. The line lies
+   along a grid row and runs from one grid column to another, so it sits
+   neatly on the grid, and the key borrows its colours from the marks
+   already on the page, so it reads as part of the same set. */
 function majorityColor(list, fallback){
   var n = {}, best = null;
   list.forEach(function(s){
@@ -816,26 +828,27 @@ function majorityColor(list, fallback){
   });
   return best || fallback;
 }
-function isHorizontal(s){
-  return Math.abs(s.y2 - s.y1) <= Math.abs(s.x2 - s.x1) * Math.tan(20 * Math.PI / 180);
-}
 function keyColors(){
   var circles = S.shapes.filter(function(s){ return s.type === "circle"; });
   var lines = S.shapes.filter(function(s){ return s.type === "line"; });
-  var flat = lines.filter(isHorizontal);
-  return {ring: majorityColor(circles, S.color),
-          stem: majorityColor(flat.length ? flat : lines, S.color)};
+  return {ring: majorityColor(circles, S.color), bar: majorityColor(lines, S.color)};
 }
-/* Where the key really sits: its stem on the nearest grid column, its head
-   on the nearest grid row, whatever point it was dropped at. */
+/* A point in the grid's frame (a along the rows, b down the columns) and
+   back again. */
+function toGrid(F, x, y){
+  var X = x - F.ox, Y = y - F.oy;
+  return {a: X * F.cs + Y * F.sn, b: -X * F.sn + Y * F.cs};
+}
+function fromGrid(F, a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
+
+/* Where the key really sits: its line on the nearest grid row, its ends on
+   the nearest grid columns, whatever point it was dropped at. */
 function keyGeom(k){
-  var F = gridFrame(), L = alifLen(), st = F.step;
-  var X = k.cx - F.ox, Y = k.cy - F.oy;
-  var lx = Math.round((X * F.cs + Y * F.sn) / st) * st;
-  var top = Math.round((-X * F.sn + Y * F.cs - L / 2) / st) * st;
-  function back(a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
-  var mid = back(lx, top + L / 2);
-  return {cx: mid.x, cy: mid.y, r: L / 2, top: back(lx, top), foot: back(lx, top + L)};
+  var F = gridFrame(), L = alifLen(), st = F.step, q = toGrid(F, k.cx, k.cy);
+  var left = Math.round((q.a - L / 2) / st) * st;
+  var row = Math.round(q.b / st) * st;
+  var mid = fromGrid(F, left + L / 2, row);
+  return {cx: mid.x, cy: mid.y, r: L / 2, p1: fromGrid(F, left, row), p2: fromGrid(F, left + L, row)};
 }
 function drawKey(c, k, env){
   if (!k || alifLen() <= 0) return;
@@ -844,10 +857,44 @@ function drawKey(c, k, env){
   c.lineWidth = env.lw;
   c.strokeStyle = col.ring;
   c.beginPath(); c.arc(g.cx, g.cy, g.r, 0, Math.PI*2); c.stroke();
-  c.strokeStyle = col.stem;
-  c.lineCap = "butt";                 // the alif ends exactly on the circle
-  c.beginPath(); c.moveTo(g.top.x, g.top.y); c.lineTo(g.foot.x, g.foot.y); c.stroke();
+  c.strokeStyle = col.bar;
+  c.lineCap = "butt";                 // the line ends exactly on the circle
+  c.beginPath(); c.moveTo(g.p1.x, g.p1.y); c.lineTo(g.p2.x, g.p2.y); c.stroke();
   if (!env.forExport && k === S.key && S.sel === "key") handle(c, g.cx, g.cy, env);
+  c.restore();
+}
+
+/* ---------------- the dots ----------------
+   The alif as the calligrapher proves it: a column of rhombic dots, one
+   for each grid square, standing tip to tip. Each dot is a grid square
+   turned on its corner, so its diagonals are exactly one division of the
+   alif, and the column fills one grid column from one grid row to another. */
+function dotsGeom(d){
+  var F = gridFrame(), st = F.step, n = S.grid.div, q = toGrid(F, d.cx, d.cy);
+  var col = (Math.floor(q.a / st) + 0.5) * st;            // the middle of a grid column
+  var top = Math.round((q.b - n * st / 2) / st) * st;
+  var cells = [];
+  for (var i = 0; i < n; i++){
+    var b = top + (i + 0.5) * st;
+    cells.push([fromGrid(F, col, b - st/2), fromGrid(F, col + st/2, b),
+                fromGrid(F, col, b + st/2), fromGrid(F, col - st/2, b)]);
+  }
+  var mid = fromGrid(F, col, top + n * st / 2);
+  return {cx: mid.x, cy: mid.y, cells: cells, half: st / 2, F: F, col: col, top: top, len: n * st};
+}
+function drawDots(c, d, env){
+  if (!d || alifLen() <= 0) return;
+  var g = dotsGeom(d);
+  c.save();
+  c.fillStyle = d.color;
+  c.beginPath();
+  g.cells.forEach(function(q){
+    c.moveTo(q[0].x, q[0].y);
+    for (var j = 1; j < 4; j++) c.lineTo(q[j].x, q[j].y);
+    c.closePath();
+  });
+  c.fill();
+  if (!env.forExport && d === S.dots && S.sel === "dots") handle(c, g.cx, g.cy, env);
   c.restore();
 }
 
@@ -889,6 +936,7 @@ function drawShape(c, s, env){
 function overlay(c, env){
   drawGrid(c, env);
   for (var i = 0; i < S.shapes.length; i++) drawShape(c, S.shapes[i], env);
+  drawDots(c, S.dots, env);
   drawKey(c, S.key, env);
   drawAlif(c, env);
 }
@@ -934,6 +982,7 @@ function draw(){
     ctx.globalAlpha = 0.6;
     ctx.setLineDash([env.lw * 2.5, env.lw * 2.5]);
     if (S.pending.kind === "key") drawKey(ctx, {cx: S.ghost.x, cy: S.ghost.y}, env);
+    else if (S.pending.kind === "dots") drawDots(ctx, {cx: S.ghost.x, cy: S.ghost.y, color: S.color}, env);
     else drawShape(ctx, makeStamp(S.ghost), env);
     ctx.restore();
   }
@@ -956,12 +1005,18 @@ function draw(){
 /* ---------------- hit testing ---------------- */
 function hitTest(p){
   var tol = 10 / S.view.scale;
-  // the key is drawn over the shapes; only its ring and stem catch the pointer
+  // the key is drawn over the shapes; only its ring and line catch the pointer
   if (S.key && alifLen() > 0){
     var kg = keyGeom(S.key);
     if (Math.abs(dist(p.x, p.y, kg.cx, kg.cy) - kg.r) < tol ||
-        distToSeg(p.x, p.y, kg.top.x, kg.top.y, kg.foot.x, kg.foot.y) < tol)
+        distToSeg(p.x, p.y, kg.p1.x, kg.p1.y, kg.p2.x, kg.p2.y) < tol)
       return {id: "key", part: "body"};
+  }
+  // the dots catch the pointer anywhere on their column
+  if (S.dots && alifLen() > 0){
+    var dg = dotsGeom(S.dots), dq = toGrid(dg.F, p.x, p.y);
+    if (Math.abs(dq.a - dg.col) < dg.half + tol && dq.b > dg.top - tol && dq.b < dg.top + dg.len + tol)
+      return {id: "dots", part: "body"};
   }
   for (var i = S.shapes.length - 1; i >= 0; i--){
     var s = S.shapes[i];
@@ -986,19 +1041,20 @@ function hitTest(p){
 function byId(id){
   if (id === "alif") return S.alif;
   if (id === "key") return S.key;
+  if (id === "dots") return S.dots;
   for (var i = 0; i < S.shapes.length; i++) if (S.shapes[i].id === id) return S.shapes[i];
   return null;
 }
 
 /* ---------------- undo ---------------- */
 function snapshot(){
-  undoStack.push(JSON.stringify({a: S.alif, s: S.shapes, k: S.key, r: S.rot}));
+  undoStack.push(JSON.stringify({a: S.alif, s: S.shapes, k: S.key, d: S.dots, r: S.rot}));
   if (undoStack.length > 80) undoStack.shift();
 }
 function undo(){
   if (!undoStack.length) return;
   var st = JSON.parse(undoStack.pop());
-  S.alif = st.a; S.shapes = st.s; S.key = st.k || null; S.sel = null;
+  S.alif = st.a; S.shapes = st.s; S.key = st.k || null; S.dots = st.d || null; S.sel = null;
   S.rot = st.r || 0;               // marks and sheet are only meaningful together
   renderRot();
   draw(); renderPanel();
@@ -1041,55 +1097,79 @@ function cancelStamp(){
   if (!S.pending) return;
   S.pending = null; S.ghost = null; armedKey = null;
   cv.style.cursor = (S.tool === "select") ? "grab" : "crosshair";
-  renderRatios(); updateStampHint(); renderKey(); draw();
+  renderRatios(); updateStampHint(); renderFixtures(); draw();
 }
 
-/* The key is placed the same way as an exact ratio: it follows the pointer,
-   already snapped, until a click sets it down. */
-function armKey(){
+/* The key and the dots are placed the same way as an exact ratio: each
+   follows the pointer, already snapped, until a click sets it down. There
+   is one of each on the sheet; placing again moves it. */
+var FIXTURES = {
+  key: {
+    noun: "key", btn: "keyBtn", del: "keyDel", hint: "keyHint",
+    notYet: "Measure the alif first — the key is one alif across.",
+    before: "Once the alif is measured, add a key: a circle with a line through it, each one alif.",
+    idle: "A circle one alif across, with a line of one alif through it, as a key to the sheet.",
+    placed: function(){ return "Drag it to move it along the grid. Its circle and line take the colours " +
+      "most used for the circles and lines on the page."; }
+  },
+  dots: {
+    noun: "dots", btn: "dotsBtn", del: "dotsDel", hint: "dotsHint",
+    notYet: "Measure the alif first — the dots are counted against it.",
+    before: "Once the alif is measured, add the alif as a column of rhombic dots.",
+    idle: "The alif as a column of rhombic dots, one to each grid square.",
+    placed: function(){ return "The alif in " + S.grid.div + " dots, each one grid square. Drag it along " +
+      "the grid; select it and click a colour to recolour it."; }
+  }
+};
+function isFixture(kind){ return kind === "key" || kind === "dots"; }
+function placingFixture(kind){ return !!(S.pending && S.pending.kind === kind); }
+
+function armFixture(kind){
   if (alifLen() <= 0){
-    document.getElementById("keyHint").textContent =
-      "Measure the alif first — the key is one alif tall.";
+    document.getElementById(FIXTURES[kind].hint).textContent = FIXTURES[kind].notYet;
     return;
   }
-  S.pending = {kind: "key", label: "key"};
+  S.pending = {kind: kind, label: kind};
   S.ghost = null;
-  armedKey = "key";
+  armedKey = kind;
   S.sel = null;
   cv.style.cursor = "copy";
-  renderRatios(); updateStampHint(); renderKey();
+  renderRatios(); updateStampHint(); renderFixtures();
   draw();
 }
+function toggleFixture(kind){ if (placingFixture(kind)) cancelStamp(); else armFixture(kind); }
 
-function renderKey(){
-  var placing = !!(S.pending && S.pending.kind === "key");
-  var b = document.getElementById("keyBtn");
-  b.setAttribute("aria-pressed", String(placing));
-  b.style.borderColor = placing ? "var(--gold)" : "";
-  b.style.color = placing ? "var(--gold)" : "";
-  document.getElementById("keyBtnT").textContent =
-    placing ? "Placing…" : (S.key ? "Move key" : "Add key");
-  document.getElementById("keyDel").hidden = !S.key;
-  var h = document.getElementById("keyHint");
-  if (placing) h.innerHTML = "Click to set the key down; it snaps to the grid. <b>Esc</b> cancels.";
-  else if (alifLen() <= 0) h.innerHTML = "Once the alif is measured, add a key: an alif in its circle.";
-  else if (S.key) h.innerHTML = "Drag it to move it along the grid. Its circle and alif take the colours " +
-    "most used for circles and horizontal lines on the page.";
-  else h.innerHTML = "An alif standing in its circle, one alif tall, as a key to the sheet.";
+function renderFixtures(){
+  Object.keys(FIXTURES).forEach(function(kind){
+    var f = FIXTURES[kind], placing = placingFixture(kind), here = !!S[kind];
+    var b = document.getElementById(f.btn);
+    b.setAttribute("aria-pressed", String(placing));
+    b.style.borderColor = placing ? "var(--gold)" : "";
+    b.style.color = placing ? "var(--gold)" : "";
+    document.getElementById(f.btn + "T").textContent =
+      placing ? "Placing…" : (here ? "Move " : "Add ") + f.noun;
+    document.getElementById(f.del).hidden = !here;
+    var h = document.getElementById(f.hint);
+    if (placing) h.innerHTML = "Click to set the " + f.noun + " down; it snaps to the grid. <b>Esc</b> cancels.";
+    else if (alifLen() <= 0) h.innerHTML = f.before;
+    else if (here) h.innerHTML = f.placed();
+    else h.innerHTML = f.idle;
+  });
 }
-document.getElementById("keyBtn").addEventListener("click", function(){
-  if (S.pending && S.pending.kind === "key") cancelStamp(); else armKey();
-});
-document.getElementById("keyDel").addEventListener("click", function(){
-  if (!S.key) return;
-  snapshot(); S.key = null;
-  if (S.sel === "key") S.sel = null;
-  draw(); renderPanel();
+Object.keys(FIXTURES).forEach(function(kind){
+  var f = FIXTURES[kind];
+  document.getElementById(f.btn).addEventListener("click", function(){ toggleFixture(kind); });
+  document.getElementById(f.del).addEventListener("click", function(){
+    if (!S[kind]) return;
+    snapshot(); S[kind] = null;
+    if (S.sel === kind) S.sel = null;
+    draw(); renderPanel();
+  });
 });
 
 function updateStampHint(){
   var h = document.getElementById("stampHint");
-  if (S.pending && S.pending.kind !== "key"){
+  if (S.pending && !isFixture(S.pending.kind)){
     h.innerHTML = "Click on the image to place a <b>" + S.pending.label + " alif</b> " +
       S.pending.kind + ". <b>Esc</b> cancels.";
   } else if (alifLen() <= 0){
@@ -1123,7 +1203,7 @@ document.querySelectorAll("#stampShape button").forEach(function(b){
       o.setAttribute("aria-pressed", String(o === b));
     });
     document.getElementById("stampOrient").hidden = (stampKind !== "line");
-    if (S.pending && S.pending.kind !== "key"){ S.pending.kind = stampKind; updateStampHint(); draw(); }
+    if (S.pending && !isFixture(S.pending.kind)){ S.pending.kind = stampKind; updateStampHint(); draw(); }
   });
 });
 document.querySelectorAll("#stampOrient button").forEach(function(b){
@@ -1132,7 +1212,7 @@ document.querySelectorAll("#stampOrient button").forEach(function(b){
     document.querySelectorAll("#stampOrient button").forEach(function(o){
       o.setAttribute("aria-pressed", String(o === b));
     });
-    if (S.pending && S.pending.kind !== "key"){ S.pending.orient = stampOrient; draw(); }
+    if (S.pending && !isFixture(S.pending.kind)){ S.pending.orient = stampOrient; draw(); }
   });
 });
 document.getElementById("cGo").addEventListener("click", function(){
@@ -1160,6 +1240,9 @@ cv.addEventListener("pointerdown", function(ev){
     if (S.pending.kind === "key"){
       S.key = {type: "key", cx: p.x, cy: p.y};
       S.sel = "key";
+    } else if (S.pending.kind === "dots"){
+      S.dots = {type: "dots", cx: p.x, cy: p.y, color: S.color};
+      S.sel = "dots";
     } else {
       var st = makeStamp(p);
       st.id = nextId++;
@@ -1263,7 +1346,7 @@ cv.addEventListener("pointermove", function(ev){
   }
   else if (drag.mode === "move"){
     var mx = p.x - drag.px, my = p.y - drag.py, b = drag.o;
-    if (o.type === "circle" || o.type === "key"){ o.cx = b.cx + mx; o.cy = b.cy + my; }
+    if (o.type === "circle" || o.type === "key" || o.type === "dots"){ o.cx = b.cx + mx; o.cy = b.cy + my; }
     else { o.x1 = b.x1 + mx; o.y1 = b.y1 + my; o.x2 = b.x2 + mx; o.y2 = b.y2 + my; }
   }
   draw(); renderPanel();
@@ -1319,7 +1402,7 @@ function renderPanel(){
   var L = alifLen();
   var ready = L > 0;
   if (ready !== ratiosReady){ ratiosReady = ready; renderRatios(); updateStampHint(); }
-  renderKey();
+  renderFixtures();
   document.getElementById("alifVal").innerHTML = L > 0
     ? Math.round(L) + " <small>px</small>"
     : "&mdash;";
@@ -1461,6 +1544,7 @@ document.addEventListener("keydown", function(ev){
       ev.preventDefault(); snapshot();
       if (S.sel === "alif") S.alif = null;
       else if (S.sel === "key") S.key = null;
+      else if (S.sel === "dots") S.dots = null;
       else S.shapes = S.shapes.filter(function(s){ return s.id !== S.sel; });
       S.sel = null; draw(); renderPanel();
     }
@@ -1471,7 +1555,8 @@ document.addEventListener("keydown", function(ev){
   else if (k === "a") setTool("alif");
   else if (k === "l") setTool("line");
   else if (k === "c") setTool("circle");
-  else if (k === "k"){ if (S.pending && S.pending.kind === "key") cancelStamp(); else armKey(); }
+  else if (k === "k") toggleFixture("key");
+  else if (k === "n") toggleFixture("dots");
   else if (k === "g"){
     S.grid.on = !S.grid.on;
     document.getElementById("gridOn").checked = S.grid.on;
@@ -1492,7 +1577,7 @@ function loadImage(src, name){
   var im = new Image();
   im.onload = function(){
     S.img = im; S.name = name; S.isSample = false;
-    S.alif = null; S.shapes = []; S.key = null; S.sel = null; undoStack = [];
+    S.alif = null; S.shapes = []; S.key = null; S.dots = null; S.sel = null; undoStack = [];
     setAlifShown(true);
     S.rot = 0; renderRot();
     S.thick = Math.max(2, Math.round(Math.hypot(im.naturalWidth, im.naturalHeight) / 700));

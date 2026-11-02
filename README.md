@@ -62,15 +62,27 @@ uploaded anywhere; the image stays on your machine.
 
 ## The key
 
-**Add key** (or `K`) places a key on the sheet: a vertical alif standing in its
-circle, the dā'ira, one alif tall. It follows the pointer until you click, and
-wherever you drop or drag it, it snaps so the alif runs along a grid column from one
-grid row to another.
+**Add key** (or `K`) places a key on the sheet: the dā'ira, a circle one alif
+across, with a horizontal line one alif long running through its centre. It follows
+the pointer until you click, and wherever you drop or drag it, it snaps so the line
+lies along a grid row and runs from one grid column to another.
 
 It takes its colours from the page rather than the Ink panel: the circle is drawn in
-whichever colour most of your circles use, and the alif in whichever colour most of
-your horizontal lines use (any lines, if none are horizontal). Recolour the marks and
-the key follows. `Move key` re-places it, `Remove` or `Backspace` takes it away.
+whichever colour most of your circles use, and the line in whichever colour most of
+your lines use. Use **Colour all** to set every circle one colour and every line
+another, and the key follows, so it shows the viewer that the lines and circles are
+all measured in the one unit. `Move key` re-places it, `Remove` or `Backspace` takes
+it away.
+
+## The alif in dots
+
+**Add dots** (or `N`) places the alif the way it is traditionally proved: a column
+of rhombic dots, the nuqat, stacked tip to tip. Each dot is one grid square turned
+on its corner, so its diagonals are exactly one division of the alif, and there are
+as many dots as the grid has divisions — 8 by default, 5 or 9 if you change the
+grid. The column snaps into a grid column, from one grid row to another, and follows
+the grid if you change its divisions. It is drawn in the current ink; select it and
+click a colour to recolour it.
 
 ## Working the other way round
 
@@ -106,6 +118,7 @@ ratio, which is often the more honest number of the two.
 |---|---|
 | `V` `A` `L` `C` | Select, Alif, Line, Circle |
 | `K` | place the key |
+| `N` | place the alif in dots |
 | `Shift` while drawing | snap a line to 15° steps; snap an alif to vertical |
 | Drag empty space, or hold `Space` | pan |
 | Scroll | zoom · `0` fits the image to the view |
