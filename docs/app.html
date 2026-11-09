@@ -360,7 +360,7 @@ a.btn{text-decoration:none}
         <p class="hint">
           <b>Shift</b> while drawing — snap a line to 15° steps. The alif is always drawn true vertical.<br>
           <b>H</b> hides or shows the alif measure; the grid stays.<br>
-          <b>S</b> snaps lines and circles to grid crossings, and diameters to whole squares.<br>
+          <b>S</b> snaps to other lines and circles (ends, midpoints, centres, then anywhere along them), else to grid crossings; diameters go to whole squares.<br>
           <b>K</b> places the key &mdash; a circle with a line through it, snapped to the grid.<br>
           <b>N</b> places the alif as a column of rhombic dots, one to each grid square.<br>
           <b>Scroll</b> to zoom, <b>drag empty space</b> or hold <b>Space</b> to pan, <b>0</b> to fit.<br>
@@ -452,7 +452,8 @@ var S = {
   alifColor: "#FFFFFF",
   gridColor: "#000000",
   grid: {on: true, div: 8, op: 0.28},
-  snap: false,                // lines and circles land on grid crossings
+  snap: false,                // lines and circles land on grid crossings and on each other
+  snapMark: null,             // where the last snapped point caught a shape
   pending: null,              // an exact ratio waiting to be placed
   ghost: null,                // where the pointer last was, while placing
   thick: 3,
@@ -845,26 +846,66 @@ function toGrid(F, x, y){
 }
 function fromGrid(F, a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
 
-/* Snap to grid: points go to the nearest grid crossing, and a circle's
-   radius to the nearest half square, so its diameter is a whole number of
-   squares. The alif itself is never snapped — it is what the grid hangs from. */
+/* Snap to grid: a point near another line or circle goes onto it —
+   first to its ends, midpoint or centre, then anywhere along the line or
+   the circle's ring — and otherwise to the nearest grid crossing. A circle's
+   radius goes to whatever its ring would pass through, or else to the nearest
+   half square, so its diameter is a whole number of squares. The shape being
+   drawn is never a target of its own, and the alif itself is never snapped —
+   it is what the grid hangs from. S.snapMark shows where a point caught. */
 function snapOn(){ return S.snap && alifLen() > 0; }
-function snapPt(p){
+var SNAP_PX = 10;                    // reach of a shape, in screen pixels
+function snapToShapes(p, skipId){
+  var tol = SNAP_PX / S.view.scale, best = null, bd = tol;
+  function tryPt(x, y, d){ if (d < bd){ bd = d; best = {x: x, y: y}; } }
+  var others = S.shapes.filter(function(o){ return o.id !== skipId; });
+  others.forEach(function(o){               // special points win outright
+    if (o.type === "line"){
+      tryPt(o.x1, o.y1, dist(p.x, p.y, o.x1, o.y1));
+      tryPt(o.x2, o.y2, dist(p.x, p.y, o.x2, o.y2));
+      var mx = (o.x1 + o.x2) / 2, my = (o.y1 + o.y2) / 2;
+      tryPt(mx, my, dist(p.x, p.y, mx, my));
+    } else tryPt(o.cx, o.cy, dist(p.x, p.y, o.cx, o.cy));
+  });
+  if (best) return best;
+  others.forEach(function(o){               // then anywhere along a centreline
+    if (o.type === "line"){
+      var dx = o.x2 - o.x1, dy = o.y2 - o.y1, L2 = dx*dx + dy*dy;
+      if (!L2) return;
+      var t = Math.max(0, Math.min(1, ((p.x - o.x1)*dx + (p.y - o.y1)*dy) / L2));
+      var x = o.x1 + t*dx, y = o.y1 + t*dy;
+      tryPt(x, y, dist(p.x, p.y, x, y));
+    } else if (o.r > 0){
+      var d = dist(p.x, p.y, o.cx, o.cy);
+      if (!d) return;
+      tryPt(o.cx + (p.x - o.cx) * o.r / d, o.cy + (p.y - o.cy) * o.r / d, Math.abs(d - o.r));
+    }
+  });
+  return best;
+}
+function snapPt(p, skipId){
+  S.snapMark = null;
   if (!snapOn()) return p;
+  var hit = snapToShapes(p, skipId);
+  if (hit){ S.snapMark = hit; return hit; }
   var F = gridFrame(), st = F.step, q = toGrid(F, p.x, p.y);
   return fromGrid(F, Math.round(q.a / st) * st, Math.round(q.b / st) * st);
 }
-function snapR(r){
+function snapRadius(o, p){
+  var r = dist(p.x, p.y, o.cx, o.cy);
+  S.snapMark = null;
   if (!snapOn()) return r;
+  var hit = snapToShapes(p, o.id);
+  if (hit){ S.snapMark = hit; return dist(hit.x, hit.y, o.cx, o.cy); }
   var h = gridFrame().step / 2;
   return Math.round(r / h) * h;
 }
 /* Slide a whole shape so its anchor — a circle's centre, a line's first
-   end — sits on a crossing, keeping its size and direction. */
+   end — sits on a crossing or another shape, keeping its size and direction. */
 function snapShape(o){
   if (!snapOn()) return o;
   var ax = o.type === "circle" ? "cx" : "x1", ay = o.type === "circle" ? "cy" : "y1";
-  var q = snapPt({x: o[ax], y: o[ay]}), dx = q.x - o[ax], dy = q.y - o[ay];
+  var q = snapPt({x: o[ax], y: o[ay]}, o.id), dx = q.x - o[ax], dy = q.y - o[ay];
   if (o.type === "circle"){ o.cx += dx; o.cy += dy; }
   else { o.x1 += dx; o.y1 += dy; o.x2 += dx; o.y2 += dy; }
   return o;
@@ -1013,6 +1054,14 @@ function draw(){
     if (S.pending.kind === "key") drawKey(ctx, {cx: S.ghost.x, cy: S.ghost.y}, env);
     else if (S.pending.kind === "dots") drawDots(ctx, {cx: S.ghost.x, cy: S.ghost.y, color: S.color}, env);
     else drawShape(ctx, makeStamp(S.ghost), env);
+    ctx.restore();
+  }
+  if (S.snapMark && (drag || S.pending)){
+    // a hollow ring where a point caught on another shape
+    ctx.save();
+    ctx.beginPath(); ctx.arc(S.snapMark.x, S.snapMark.y, env.handle * 1.6, 0, Math.PI * 2);
+    ctx.lineWidth = 2 / sc; ctx.strokeStyle = "#FFFFFF"; ctx.stroke();
+    ctx.lineWidth = 1 / sc; ctx.strokeStyle = "#0C0E12"; ctx.stroke();
     ctx.restore();
   }
   ctx.restore();
@@ -1278,7 +1327,7 @@ cv.addEventListener("pointerdown", function(ev){
       S.shapes.push(st);
       S.sel = st.id;
     }
-    S.pending = null; S.ghost = null; armedKey = null;
+    S.pending = null; S.ghost = null; armedKey = null; S.snapMark = null;
     setTool("select");
     renderRatios(); updateStampHint();
     draw(); renderPanel();
@@ -1368,11 +1417,11 @@ cv.addEventListener("pointermove", function(ev){
       var L = Math.hypot(dx, dy), ang = Math.round(Math.atan2(dy, dx) / (Math.PI/12)) * (Math.PI/12);
       q.x = anchorX + Math.cos(ang) * L; q.y = anchorY + Math.sin(ang) * L;
     }
-    else q = snapPt(q);
+    else q = snapPt(q, o.id);
     o[ax] = q.x; o[ay] = q.y;
   }
   else if (drag.mode === "draw-radius" || drag.mode === "radius"){
-    var rr = snapR(dist(p.x, p.y, o.cx, o.cy));
+    var rr = snapRadius(o, p);
     // a fresh circle may snap to nothing, so a mere click leaves none behind
     o.r = (drag.mode === "radius" && snapOn()) ? Math.max(gridFrame().step / 2, rr) : rr;
   }
@@ -1386,6 +1435,7 @@ cv.addEventListener("pointermove", function(ev){
 });
 
 function endDrag(){
+  S.snapMark = null;
   if (drag && drag.fresh){
     var o = byId(drag.id);
     var tiny = o && (o.type === "circle" ? o.r * S.view.scale < 4

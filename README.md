@@ -54,9 +54,12 @@ uploaded anywhere; the image stays on your machine.
 5. Draw with the **Line** and **Circle** tools. Circles are drawn from the centre
    outwards and are always true circles. Tick **Snap to grid** (or press `S`) and
    line ends and circle centres land on grid crossings, and circles grow in half
-   squares so their diameter is a whole number of squares; moved shapes snap too.
-   Exact-ratio shapes keep their size and snap their centre or first end. The alif
-   is never snapped, since the grid hangs from it.
+   squares so their diameter is a whole number of squares. Near another line or
+   circle, a point catches on that shape instead: first its ends, midpoint or
+   centre, then anywhere along the line or the circle's ring, marked with a small
+   ring while you drag. A circle's edge catches the same way. Moved shapes snap
+   too, and exact-ratio shapes keep their size and snap their centre or first end.
+   The alif is never snapped, since the grid hangs from it.
 6. Each shape is labelled with its ratio to the alif — `1/4 (98%)` means the shape
    is nearest to a quarter of an alif and sits within 98% of exactly that.
 7. **Export PNG** writes the image, the grid and your marks out as one picture. The
@@ -132,7 +135,7 @@ ratio, which is often the more honest number of the two.
 | `Ctrl+Z` | undo |
 | Drag the dial | straighten · `Shift` for hair-fine · `[` `]` nudge a tenth of a degree |
 | `G` | show/hide the grid |
-| `S` | snap to grid on/off |
+| `S` | snap to the grid and to other shapes, on/off |
 | `H` | show/hide the alif measure (the grid stays) |
 
 Clicking a colour recolours the selected shape as well as setting the colour for
