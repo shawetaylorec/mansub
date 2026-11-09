@@ -335,7 +335,12 @@ a.btn{text-decoration:none}
           <button class="btn" id="paintLines" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Lines</button>
           <button class="btn" id="paintCircles" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Circles</button>
         </div>
-        <div class="row"><span>Thickness</span><input type="range" id="thick" min="1" max="40" value="3"><span class="num" id="thickV">3px</span></div>
+        <div class="row"><span id="thickK">Thickness</span><input type="range" id="thick" min="1" max="40" value="3"><span class="num" id="thickV">3px</span></div>
+        <div class="row" style="justify-content:flex-start;gap:6px">
+          <span style="margin-right:auto">Thickness all</span>
+          <button class="btn" id="thickLines" style="font-size:12px;padding:5px 9px">Lines</button>
+          <button class="btn" id="thickCircles" style="font-size:12px;padding:5px 9px">Circles</button>
+        </div>
         <div class="row"><span>Circles read as</span>
           <select id="circMode"><option value="diameter" selected>Diameter</option><option value="radius">Radius</option></select>
         </div>
@@ -968,10 +973,16 @@ function drawDots(c, d, env){
   c.restore();
 }
 
+/* Each line or circle may carry its own thickness (s.w, image pixels);
+   one that has none follows the sheet's thickness, as the alif, key and
+   dots always do. On screen a stroke never thins below a visible hair. */
+function strokeW(s, env){
+  return s.w ? Math.max(s.w, env.minLw || 0) : env.lw;
+}
 function drawShape(c, s, env){
   c.save();
   c.strokeStyle = s.color;
-  c.lineWidth = env.lw;
+  c.lineWidth = strokeW(s, env);
   c.lineCap = "round";
   c.beginPath();
   if (s.type === "line"){
@@ -1036,6 +1047,7 @@ function draw(){
   var env = {
     forExport: false,
     lw: Math.max(S.thick, 1.2 / sc),
+    minLw: 1.2 / sc,
     hair: 1 / sc,
     handle: 5 / sc,
     label: 13 / sc,
@@ -1101,10 +1113,10 @@ function hitTest(p){
     if (s.type === "line"){
       if (dist(p.x, p.y, s.x1, s.y1) < tol) return {id: s.id, part: "p1"};
       if (dist(p.x, p.y, s.x2, s.y2) < tol) return {id: s.id, part: "p2"};
-      if (distToSeg(p.x, p.y, s.x1, s.y1, s.x2, s.y2) < tol) return {id: s.id, part: "body"};
+      if (distToSeg(p.x, p.y, s.x1, s.y1, s.x2, s.y2) < tol + (s.w || S.thick) / 2) return {id: s.id, part: "body"};
     } else {
       var d = dist(p.x, p.y, s.cx, s.cy);
-      if (Math.abs(d - s.r) < tol) return {id: s.id, part: "ring"};
+      if (Math.abs(d - s.r) < tol + (s.w || S.thick) / 2) return {id: s.id, part: "ring"};
       if (d < s.r) return {id: s.id, part: "body"};
     }
   }
@@ -1482,6 +1494,7 @@ function setTool(t){
 
 var ratiosReady = null;
 function renderPanel(){
+  syncThick();
   var L = alifLen();
   var ready = L > 0;
   if (ready !== ratiosReady){ ratiosReady = ready; renderRatios(); updateStampHint(); }
@@ -1605,11 +1618,42 @@ document.getElementById("gridOp").addEventListener("input", function(e){
   document.getElementById("gridOpV").textContent = e.target.value + "%";
   draw();
 });
+/* The thickness slider works like the ink: with a line or circle selected
+   it sets that one shape; with nothing selected it sets the sheet's
+   thickness, which every shape not given its own follows. */
+function selShape(){
+  var o = S.sel && S.sel !== "alif" && S.sel !== "key" && S.sel !== "dots" ? byId(S.sel) : null;
+  return o && (o.type === "line" || o.type === "circle") ? o : null;
+}
+function syncThick(){
+  var o = selShape(), v = o ? (o.w || S.thick) : S.thick;
+  var th = document.getElementById("thick");
+  th.value = Math.min(40, Math.max(1, Math.round(v)));
+  document.getElementById("thickV").textContent = th.value + "px";
+  document.getElementById("thickK").textContent = o ? "This " + o.type : "Thickness";
+}
+var thickSnapped = false;
 document.getElementById("thick").addEventListener("input", function(e){
-  S.thick = +e.target.value;
-  document.getElementById("thickV").textContent = e.target.value + "px";
+  var v = +e.target.value, o = selShape();
+  if (o){
+    if (!thickSnapped){ snapshot(); thickSnapped = true; }
+    o.w = v;
+  } else S.thick = v;
+  document.getElementById("thickV").textContent = v + "px";
   draw();
 });
+document.getElementById("thick").addEventListener("change", function(){ thickSnapped = false; });
+/* Give every line, or every circle, the slider's current thickness. */
+function thickAll(type){
+  var hit = S.shapes.filter(function(s){ return s.type === type; });
+  if (!hit.length) return;
+  snapshot();
+  var v = +document.getElementById("thick").value;
+  hit.forEach(function(s){ s.w = v; });
+  draw(); renderPanel();
+}
+document.getElementById("thickLines").addEventListener("click", function(){ thickAll("line"); });
+document.getElementById("thickCircles").addEventListener("click", function(){ thickAll("circle"); });
 document.getElementById("circMode").addEventListener("change", function(e){ S.circMode = e.target.value; draw(); renderPanel(); });
 document.getElementById("maxDen").addEventListener("change", function(e){ S.maxDen = +e.target.value; draw(); renderPanel(); });
 document.getElementById("showLabels").addEventListener("change", function(e){ S.labels = e.target.checked; draw(); });
