@@ -311,6 +311,10 @@ a.btn{text-decoration:none}
           <kbd style="font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">G</kbd>
         </div>
         <div class="row">
+          <label class="switch"><input type="checkbox" id="snapOn"> Snap to grid</label>
+          <kbd style="font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--faint);border:1px solid var(--line2);border-radius:3px;padding:3px 4px">S</kbd>
+        </div>
+        <div class="row">
           <span>Divisions per alif</span>
           <select id="gridDiv">
             <option value="4">4</option><option value="5">5 · naskh nuqta</option>
@@ -354,8 +358,9 @@ a.btn{text-decoration:none}
       <div class="sec">
         <h2>Shortcuts</h2>
         <p class="hint">
-          <b>Shift</b> while drawing — snap a line to 15° steps, an alif to true vertical.<br>
+          <b>Shift</b> while drawing — snap a line to 15° steps. The alif is always drawn true vertical.<br>
           <b>H</b> hides or shows the alif measure; the grid stays.<br>
+          <b>S</b> snaps lines and circles to grid crossings, and diameters to whole squares.<br>
           <b>K</b> places the key &mdash; a circle with a line through it, snapped to the grid.<br>
           <b>N</b> places the alif as a column of rhombic dots, one to each grid square.<br>
           <b>Scroll</b> to zoom, <b>drag empty space</b> or hold <b>Space</b> to pan, <b>0</b> to fit.<br>
@@ -447,6 +452,7 @@ var S = {
   alifColor: "#FFFFFF",
   gridColor: "#000000",
   grid: {on: true, div: 8, op: 0.28},
+  snap: false,                // lines and circles land on grid crossings
   pending: null,              // an exact ratio waiting to be placed
   ghost: null,                // where the pointer last was, while placing
   thick: 3,
@@ -508,12 +514,14 @@ function readout(s){
   var r = ratioOf(s);
   if (r === null) return {frac: "—", acc: "", ratio: null};
   var b = bestFraction(r, S.maxDen);
+  if (!b) return {frac: "0 alif", acc: "", ratio: r};   // nothing drawn yet (snapping can leave a shape at zero)
   return {frac: fracLabel(b) + " alif", acc: Math.round(b.acc) + "%", ratio: r};
 }
 function canvasLabel(s){
   var r = ratioOf(s);
   if (r === null) return "set alif";
   var b = bestFraction(r, S.maxDen);
+  if (!b) return "0";
   return fracLabel(b) + "  (" + Math.round(b.acc) + "%)";
 }
 
@@ -711,8 +719,8 @@ function roundRect(c, x, y, w, h, r){
 }
 
 /* The grid's own frame: it starts at the head of the alif and its columns
-   run along the alif, so the alif always lies on the grid, however it is
-   turned. */
+   run along the alif. The alif is always drawn true vertical, so in practice
+   the grid is square to the sheet. */
 function gridFrame(){
   var dx = S.alif.x2 - S.alif.x1, dy = S.alif.y2 - S.alif.y1;
   if (dy < 0) { dx = -dx; dy = -dy; }
@@ -836,6 +844,31 @@ function toGrid(F, x, y){
   return {a: X * F.cs + Y * F.sn, b: -X * F.sn + Y * F.cs};
 }
 function fromGrid(F, a, b){ return {x: F.ox + a * F.cs - b * F.sn, y: F.oy + a * F.sn + b * F.cs}; }
+
+/* Snap to grid: points go to the nearest grid crossing, and a circle's
+   radius to the nearest half square, so its diameter is a whole number of
+   squares. The alif itself is never snapped — it is what the grid hangs from. */
+function snapOn(){ return S.snap && alifLen() > 0; }
+function snapPt(p){
+  if (!snapOn()) return p;
+  var F = gridFrame(), st = F.step, q = toGrid(F, p.x, p.y);
+  return fromGrid(F, Math.round(q.a / st) * st, Math.round(q.b / st) * st);
+}
+function snapR(r){
+  if (!snapOn()) return r;
+  var h = gridFrame().step / 2;
+  return Math.round(r / h) * h;
+}
+/* Slide a whole shape so its anchor — a circle's centre, a line's first
+   end — sits on a crossing, keeping its size and direction. */
+function snapShape(o){
+  if (!snapOn()) return o;
+  var ax = o.type === "circle" ? "cx" : "x1", ay = o.type === "circle" ? "cy" : "y1";
+  var q = snapPt({x: o[ax], y: o[ay]}), dx = q.x - o[ax], dy = q.y - o[ay];
+  if (o.type === "circle"){ o.cx += dx; o.cy += dy; }
+  else { o.x1 += dx; o.y1 += dy; o.x2 += dx; o.y2 += dy; }
+  return o;
+}
 
 /* Where the key really sits: its line on the nearest grid column, its ends
    on the nearest grid rows, whatever point it was dropped at. */
@@ -1065,12 +1098,12 @@ function makeStamp(p){
   var L = alifLen(), r = S.pending.ratio;
   if (S.pending.kind === "circle"){
     var rad = (S.circMode === "diameter") ? r * L / 2 : r * L;
-    return {id: 0, type: "circle", color: S.color, cx: p.x, cy: p.y, r: rad};
+    return snapShape({id: 0, type: "circle", color: S.color, cx: p.x, cy: p.y, r: rad});
   }
   var half = r * L / 2;
-  return (S.pending.orient === "v")
+  return snapShape((S.pending.orient === "v")
     ? {id: 0, type: "line", color: S.color, x1: p.x, y1: p.y - half, x2: p.x, y2: p.y + half}
-    : {id: 0, type: "line", color: S.color, x1: p.x - half, y1: p.y, x2: p.x + half, y2: p.y};
+    : {id: 0, type: "line", color: S.color, x1: p.x - half, y1: p.y, x2: p.x + half, y2: p.y});
 }
 
 function armStamp(label, num, den, key){
@@ -1260,6 +1293,7 @@ cv.addEventListener("pointerdown", function(ev){
     drag = {mode: "draw-end", id: "alif", fresh: true};
     draw(); renderPanel(); return;
   }
+  if (S.tool === "line" || S.tool === "circle") p = snapPt(p);
   if (S.tool === "line"){
     snapshot();
     var ln = {id: nextId++, type: "line", color: S.color, x1: p.x, y1: p.y, x2: p.x, y2: p.y};
@@ -1326,24 +1360,27 @@ cv.addEventListener("pointermove", function(ev){
     else { ax = "x2"; ay = "y2"; }
     var anchorX = (ax === "x1") ? o.x2 : o.x1, anchorY = (ax === "x1") ? o.y2 : o.y1;
     var q = {x: p.x, y: p.y};
-    if (ev.shiftKey){
-      if (drag.id === "alif"){
-        if (Math.abs(p.x - anchorX) < Math.abs(p.y - anchorY)) q.x = anchorX; else q.y = anchorY;
-      } else {
-        var dx = p.x - anchorX, dy = p.y - anchorY;
-        var L = Math.hypot(dx, dy), ang = Math.round(Math.atan2(dy, dx) / (Math.PI/12)) * (Math.PI/12);
-        q.x = anchorX + Math.cos(ang) * L; q.y = anchorY + Math.sin(ang) * L;
-      }
+    // the alif only ever stands true vertical, square to the sheet, so the
+    // grid always runs parallel to the image's edges; turn the image, not the alif
+    if (drag.id === "alif") q.x = anchorX;
+    else if (ev.shiftKey){
+      var dx = p.x - anchorX, dy = p.y - anchorY;
+      var L = Math.hypot(dx, dy), ang = Math.round(Math.atan2(dy, dx) / (Math.PI/12)) * (Math.PI/12);
+      q.x = anchorX + Math.cos(ang) * L; q.y = anchorY + Math.sin(ang) * L;
     }
+    else q = snapPt(q);
     o[ax] = q.x; o[ay] = q.y;
   }
   else if (drag.mode === "draw-radius" || drag.mode === "radius"){
-    o.r = dist(p.x, p.y, o.cx, o.cy);
+    var rr = snapR(dist(p.x, p.y, o.cx, o.cy));
+    // a fresh circle may snap to nothing, so a mere click leaves none behind
+    o.r = (drag.mode === "radius" && snapOn()) ? Math.max(gridFrame().step / 2, rr) : rr;
   }
   else if (drag.mode === "move"){
     var mx = p.x - drag.px, my = p.y - drag.py, b = drag.o;
     if (o.type === "circle" || o.type === "key" || o.type === "dots"){ o.cx = b.cx + mx; o.cy = b.cy + my; }
     else { o.x1 = b.x1 + mx; o.y1 = b.y1 + my; o.x2 = b.x2 + mx; o.y2 = b.y2 + my; }
+    if (o.type === "circle" || o.type === "line") snapShape(o);
   }
   draw(); renderPanel();
 });
@@ -1386,7 +1423,7 @@ function setTool(t){
   cv.style.cursor = (t === "select") ? "grab" : "crosshair";
   var hints = {
     select: "Drag a shape to move it; drag a circle&rsquo;s edge to resize, or a line&rsquo;s end to stretch it.",
-    alif:   "Drag from the top of the alif to its foot. Everything else is measured against it.",
+    alif:   "Drag from the top of the alif to its foot &mdash; it stays true vertical; straighten the image to meet it. Everything else is measured against it.",
     line:   "Drag to draw a straight measure.",
     circle: "Drag out from the centre. Circles are always true circles."
   };
@@ -1506,6 +1543,12 @@ document.querySelectorAll(".tool").forEach(function(b){
   b.addEventListener("click", function(){ setTool(b.dataset.tool); });
 });
 document.getElementById("gridOn").addEventListener("change", function(e){ S.grid.on = e.target.checked; draw(); });
+function setSnap(on){
+  S.snap = on;
+  document.getElementById("snapOn").checked = on;
+  if (S.ghost) draw();
+}
+document.getElementById("snapOn").addEventListener("change", function(e){ setSnap(e.target.checked); });
 document.getElementById("gridDiv").addEventListener("change", function(e){ S.grid.div = +e.target.value; draw(); renderPanel(); });
 document.getElementById("gridOp").addEventListener("input", function(e){
   S.grid.op = +e.target.value / 100;
@@ -1557,6 +1600,7 @@ document.addEventListener("keydown", function(ev){
     document.getElementById("gridOn").checked = S.grid.on;
     draw();
   }
+  else if (k === "s") setSnap(!S.snap);
   else if (k === "h"){ setAlifShown(!S.alifShown); draw(); renderPanel(); }
   else if (k === "0") fitView();
   else if (ev.key === "["){ ev.preventDefault(); rotateBy(-Math.PI / 1800); }

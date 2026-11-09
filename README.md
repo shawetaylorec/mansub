@@ -41,8 +41,9 @@ uploaded anywhere; the image stays on your machine.
    so you get a square-edged image rather than a picture at a jaunty angle. What falls
    outside is dimmed rather than hidden, so you can see what you are giving up. Turn it
    off to keep the whole tilted sheet, blank corners and all.
-3. Pick the **Alif** tool and drag from the top of an alif to its foot. Hold `Shift`
-   to lock the measurement to true vertical.
+3. Pick the **Alif** tool and drag from the top of an alif to its foot. The measure
+   is locked to true vertical, so the grid always runs square to the image; if the
+   alif on the page leans, straighten the image with the dial rather than the alif.
 
    Once it is set, untick **Show alif measure** (or press `H`) to hide the measure
    itself. The grid and every ratio still follow it — it is only out of sight, which
@@ -51,7 +52,11 @@ uploaded anywhere; the image stays on your machine.
    5 and 9 offered because those are the usual nuqta counts for naskh and thuluth.
    Heavier lines fall on whole alifs.
 5. Draw with the **Line** and **Circle** tools. Circles are drawn from the centre
-   outwards and are always true circles.
+   outwards and are always true circles. Tick **Snap to grid** (or press `S`) and
+   line ends and circle centres land on grid crossings, and circles grow in half
+   squares so their diameter is a whole number of squares; moved shapes snap too.
+   Exact-ratio shapes keep their size and snap their centre or first end. The alif
+   is never snapped, since the grid hangs from it.
 6. Each shape is labelled with its ratio to the alif — `1/4 (98%)` means the shape
    is nearest to a quarter of an alif and sits within 98% of exactly that.
 7. **Export PNG** writes the image, the grid and your marks out as one picture. The
@@ -120,13 +125,14 @@ ratio, which is often the more honest number of the two.
 | `V` `A` `L` `C` | Select, Alif, Line, Circle |
 | `K` | place the key |
 | `N` | place the alif in dots |
-| `Shift` while drawing | snap a line to 15° steps; snap an alif to vertical |
+| `Shift` while drawing | snap a line to 15° steps |
 | Drag empty space, or hold `Space` | pan |
 | Scroll | zoom · `0` fits the image to the view |
 | `Backspace` | delete the selection |
 | `Ctrl+Z` | undo |
 | Drag the dial | straighten · `Shift` for hair-fine · `[` `]` nudge a tenth of a degree |
 | `G` | show/hide the grid |
+| `S` | snap to grid on/off |
 | `H` | show/hide the alif measure (the grid stays) |
 
 Clicking a colour recolours the selected shape as well as setting the colour for
@@ -141,8 +147,8 @@ any of the fluorescents, and its weight is a slider.
 - Measurements are in image pixels, so they are only as accurate as the photograph.
   A page shot at an angle will not give honest ratios — shoot flat-on.
 - **Circles read as** switches the measured quantity between diameter and radius.
-- The grid always runs along the alif: tilt the alif measure and the grid turns
-  with it, so the alif always sits exactly on the grid.
+- The alif measure is always true vertical and the grid always square to the image,
+  so the alif sits exactly on the grid; straightening is done by turning the image.
 - The app opens on a sample specimen set in [Amiri](https://github.com/alif-type/amiri),
   with the alif already measured and a circle whose diameter is that alif — the
   classical dā'ira. Open your own image to replace it.
