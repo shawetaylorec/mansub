@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fingertip wordmarks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--night:#0A0E19;--panel:#10141F;--line:#212A40;--line2:#2E3852;--text:#ECE5D3;--dim:#A5ABBD;--gold:#D9AE5B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--night);color:var(--text);font:400 15px/1.5 "IBM Plex Sans",system-ui,sans-serif;padding:40px 24px 80px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-family:Marcellus,serif;font-weight:400;font-size:34px;margin:0}
+.intro{color:var(--dim);max-width:66ch;margin:10px 0 28px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.big{padding:56px 24px;display:grid;place-items:center;position:relative;background:radial-gradient(90% 80% at 50% 30%,#18203A,var(--night))}
+.num{position:absolute;left:14px;top:12px;font:600 13px "IBM Plex Sans";color:var(--night);background:var(--gold);
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center}
+.bar{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-top:1px solid var(--line);background:var(--night)}
+.seal{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(160deg,#1C2338,#121827);border:1px solid var(--line2)}
+.bar .en{font-family:Marcellus,serif;font-size:19px}
+.meta{padding:12px 16px 14px;border-top:1px solid var(--line)}
+.meta b{font-weight:600}
+.meta p{margin:3px 0 0;color:var(--dim);font-size:13.5px;max-width:60ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>منسوب, at the fingertips</h1>
+  <p class="intro">The word's own baseline is the rule's lower edge. The teeth of ن and س and the two ends of ب rise into it as its graduations, with a space above them before the rule's top edge. The loops of م and و, now drawn in the fingers' own white, are two fingertips, and the rest of the hand is sketched in beside them.</p>
+  <div class="grid" id="cards"></div>
+</div>
+<script>
+var GOLD = "#D9AE5B", LINE = "#EDE3CF", uid = 0;
+function mark(o){
+  var u = o.u, id = "m" + (uid++);
+  var cropB = o.crop ? o.crop[1] : -7.8, NS = o.name ? (o.nameSize || 2.6) : 0;
+  var x0 = -1.6, x1 = o.crop ? o.crop[0] : o.hand ? 33.5 : 27, y0 = cropB - (o.name ? NS + .9 : 0), y1 = o.crop ? (o.crop[2] || 6.4) : o.hand ? 11.4 : 6.4;
+  var W = (x1 - x0) * u, H = (y1 - y0) * u;
+  var X = function(x){ return +((x - x0) * u).toFixed(2); };
+  var Y = function(y){ return +((y1 - y) * u).toFixed(2); };
+  var hair = Math.max(.9, (o.hair || .2) * u);
+  var T = 3, R = 1.6, r = .62, TOP = 5.6, RL = -1, RR = 21.6;
+  var mim = [19.5, R], waw = [7.5, R];
+  var out = [], defs = [], front = [];
+  function P(x, y){ return X(x) + ' ' + Y(y); }
+  function rect(x, y, w, h, fill, extra){ out.push('<rect x="' + X(x) + '" y="' + Y(y + h) + '" width="' + (w * u).toFixed(2) + '" height="' + (h * u).toFixed(2) + '" fill="' + fill + '"' + (extra || '') + '/>'); }
+  function ring(c){
+    var k = function(rr){ return 'M' + P(c[0] - rr, c[1]) + 'a' + rr * u + ' ' + rr * u + ' 0 1 0 ' + 2 * rr * u + ' 0a' + rr * u + ' ' + rr * u + ' 0 1 0 ' + -2 * rr * u + ' 0z'; };
+    front.unshift('<path fill-rule="evenodd" fill="' + LINE + '" d="' + k(R) + k(r) + '"/>');
+  }
+  function dot(cx, cy){ var h = .62; out.push('<path fill="' + GOLD + '" d="M' + P(cx, cy + h) + 'L' + P(cx + h, cy) + 'L' + P(cx, cy - h) + 'L' + P(cx - h, cy) + 'Z"/>'); }
+  // a fine line, brought to the front, fading as it leaves the fingertip
+  function hairline(ax, ay, bx, by){
+    var g = id + 'h' + defs.length;
+    defs.push('<linearGradient id="' + g + '" gradientUnits="userSpaceOnUse" x1="' + X(ax) + '" y1="' + Y(ay) + '" x2="' + X(bx) + '" y2="' + Y(by) + '">' +
+      '<stop offset="0" stop-color="' + LINE + '"/><stop offset=".6" stop-color="' + LINE + '" stop-opacity=".85"/><stop offset="1" stop-color="' + LINE + '" stop-opacity="0"/></linearGradient>');
+    front.push('<path d="M' + P(ax, ay) + 'L' + P(bx, by) + '" stroke="url(#' + g + ')" stroke-width="' + hair + '" stroke-linecap="round" fill="none"/>');
+  }
+
+  // the rule: a faint body, its top edge a fine line, its lower edge the baseline
+  if (o.tint) out.push('<rect x="' + X(RL) + '" y="' + Y(TOP) + '" width="' + (RR - RL) * u + '" height="' + TOP * u + '" fill="' + GOLD + '" fill-opacity=".08"/>');
+  out.push('<path d="M' + P(RL, 0) + 'V' + Y(TOP) + 'H' + X(RR) + 'V' + Y(0) + '" fill="none" stroke="' + GOLD + '" stroke-width="' + hair + '" stroke-linejoin="round"/>');
+  rect(RL, -1, RR - RL, 1, GOLD);
+
+  // the graduations: ب's two ends, س's three teeth, ن's tooth
+  [0, 4, 10, 12, 14, 16].forEach(function(x){ rect(x, 0, 1, T, GOLD); });
+  dot(16.5, T + 1.25);        // ن's dot, in the space beneath the top edge
+  dot(2.5, o.left ? -1.68 : -2.1);   // ب's dot, beneath the rule, in the middle of ب
+
+  // the fingertips are the loops of م and و
+  ring(mim); ring(waw);
+  // و's tail: from the right of its head, down through the rule and curling left,
+  // never leaving the width of its finger
+  var cx = waw[0], le = cx - R + hair / u / 2, ri = cx + R, tw = 1, ty = -2;
+  front.unshift('<path fill="' + LINE + '" d="M' + P(ri - tw, R) + 'H' + X(ri) + 'V' + Y(ty) + 'H' + X(le) + 'V' + Y(ty + tw) + 'H' + X(ri - tw) + 'Z"/>');
+
+  // the fingers, laid over everything
+  var e = R - hair / u / 2, len = o.len || 8.4;
+  hairline(waw[0] - e, waw[1], waw[0] - e, waw[1] - len);
+  hairline(waw[0] + e, waw[1], waw[0] + e, waw[1] - len);
+  var d = [Math.SQRT1_2, -Math.SQRT1_2], n = [Math.SQRT1_2, Math.SQRT1_2];
+  [1, -1].forEach(function(s){
+    var ax = mim[0] + n[0] * e * s, ay = mim[1] + n[1] * e * s;
+    hairline(ax, ay, ax + d[0] * len, ay + d[1] * len);
+  });
+  // a fingertip in outline: a rounded end and two sides running off along dir
+  function tip(c, rk, dir, ln, creaseAt){
+    var dd = dir, nn = [-dir[1], dir[0]];
+    var a = [c[0] + nn[0] * rk, c[1] + nn[1] * rk], b = [c[0] - nn[0] * rk, c[1] - nn[1] * rk];
+    front.push('<path d="M' + P(a[0], a[1]) + 'A' + rk * u + ' ' + rk * u + ' 0 0 0 ' + P(b[0], b[1]) + '" stroke="' + LINE + '" stroke-width="' + hair + '" fill="none" stroke-linecap="round"/>');
+    hairline(a[0], a[1], a[0] + dd[0] * ln, a[1] + dd[1] * ln);
+    hairline(b[0], b[1], b[0] + dd[0] * ln, b[1] + dd[1] * ln);
+    if (creaseAt){
+      var m = [c[0] + dd[0] * creaseAt, c[1] + dd[1] * creaseAt], s2 = rk * .78;
+      front.push('<path d="M' + P(m[0] - nn[0] * s2, m[1] - nn[1] * s2) + 'Q' + P(m[0] - dd[0] * .4, m[1] - dd[1] * .4) + ' ' + P(m[0] + nn[0] * s2, m[1] + nn[1] * s2) + '" stroke="' + LINE + '" stroke-opacity=".75" stroke-width="' + hair + '" fill="none" stroke-linecap="round"/>');
+    }
+  }
+  if (o.hand){
+    // the rest of the hand on م's side: middle, ring and little fingers, stepping back
+    var gap = (2 * R + .25) * (o.under ? -1 : 1);
+    var steps = o.under ? [[1, .4, R * .98, 7], [2, 1.2, R * .92, 6.2], [3, 2.3, R * .8, 5]] : [[1, 3.0, R * .98, 7.6], [2, 3.6, R * .92, 6.8], [3, 5.3, R * .78, 5.6]];
+    steps.forEach(function(f){
+      var c = [mim[0] + n[0] * gap * f[0] * (f[0] === 3 ? .97 : 1) + d[0] * f[1], mim[1] + n[1] * gap * f[0] * (f[0] === 3 ? .97 : 1) + d[1] * f[1]];
+      tip(c, f[2], [d[0], d[1]], f[3], o.crease ? 5.2 - f[1] * .3 : 0);
+    });
+  }
+  if (o.hand2){
+    // and on و's side, two more fingers to its right, their tips peeping below the rule
+    var side = o.left ? -1 : 1, F = [[1, -3.7, R * .98], [2, -4.5, R * .92]], cs = [];
+    F.forEach(function(f){
+      var c = [waw[0] + side * (2 * R + .25) * f[0], f[1]]; cs.push(c);
+      tip(c, f[2], [0, -1], 5.2, o.crease ? 2.6 : 0);
+    });
+    if (o.whiteDot){
+      // ب's dot, in white, belongs to these fingers now
+      var bx, by;
+      if (o.left === "notch"){ bx = ((cs[0][0] - F[0][2]) + (cs[1][0] + F[1][2])) / 2; by = cs[0][1] + 1.05; }
+      else { bx = cs[0][0]; by = cs[0][1] + .1; }
+      var h = .62;
+      front.push('<path fill="' + LINE + '" d="M' + P(bx, by + h) + 'L' + P(bx + h, by) + 'L' + P(bx, by - h) + 'L' + P(bx - h, by) + 'Z"/>');
+    }
+  }
+  if (o.crease){
+    var q = 5.2, s = R * .78, mx = mim[0] + d[0] * q, my = mim[1] + d[1] * q;
+    front.push('<path d="M' + P(mx - n[0] * s, my - n[1] * s) + 'Q' + P(mx - d[0] * .45, my - d[1] * .45) + ' ' + P(mx + n[0] * s, my + n[1] * s) + '" stroke="' + LINE + '" stroke-opacity=".75" stroke-width="' + hair + '" fill="none" stroke-linecap="round"/>');
+    var wy = waw[1] - q - .4;
+    front.push('<path d="M' + P(waw[0] - s, wy) + 'Q' + P(waw[0], wy + .45) + ' ' + P(waw[0] + s, wy) + '" stroke="' + LINE + '" stroke-opacity=".75" stroke-width="' + hair + '" fill="none" stroke-linecap="round"/>');
+  }
+  var body = out.join("") + front.join("");
+  if (o.fade && o.crop){
+    // the fingers fade out where the crop cuts them, at the foot and the right
+    defs.push('<linearGradient id="' + id + 'fv" gradientUnits="userSpaceOnUse" x1="0" y1="' + Y(cropB + 1.1) + '" x2="0" y2="' + Y(cropB) + '"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>' +
+      '<linearGradient id="' + id + 'fh" gradientUnits="userSpaceOnUse" x1="' + X(x1 - 1.7) + '" y1="0" x2="' + X(x1) + '" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>' +
+      '<mask id="' + id + 'mv" maskUnits="userSpaceOnUse" x="0" y="0" width="' + W + '" height="' + H + '"><rect width="' + W + '" height="' + H + '" fill="url(#' + id + 'fv)"/></mask>' +
+      '<mask id="' + id + 'mh" maskUnits="userSpaceOnUse" x="0" y="0" width="' + W + '" height="' + H + '"><rect width="' + W + '" height="' + H + '" fill="url(#' + id + 'fh)"/></mask>');
+    body = '<g mask="url(#' + id + 'mv)"><g mask="url(#' + id + 'mh)">' + body + '</g></g>';
+  }
+  if (o.name){
+    // the English name, engraved the exact width of the rule beneath it
+    body += '<text x="' + X(RL) + '" y="' + Y(y0 + .35) + '" textLength="' + ((RR - RL) * u).toFixed(2) + '" lengthAdjust="spacing" font-family="Marcellus, serif" font-size="' + (NS * u).toFixed(2) + '" fill="' + (o.nameInk || '#ECE5D3') + '">MANSUB</text>';
+  }
+  return '<svg width="' + W.toFixed(0) + '" height="' + H.toFixed(0) + '" viewBox="0 0 ' + W.toFixed(2) + ' ' + H.toFixed(2) + '" role="img" aria-label="' + (o.name ? 'منسوب, Mansub' : 'منسوب') + '"><defs>' + defs.join("") + '</defs>' + body + '</svg>';
+}
+var V = [
+  {n: 43, name: "Mansub", o: {hand: true, hand2: true, left: true, tint: true, crop: [25.6, -4.3, 5.8]},
+   note: "ب's dot back in gold, centred under the letter and raised. The middle finger of the right hand starts lower, nearly level with the ring finger, and و's tail turns flush under the baseline."}
+];
+document.getElementById("cards").innerHTML = V.map(function(v){
+  return '<div class="card"><div class="big"><span class="num">' + v.n + '</span>' + mark(Object.assign({u: 15}, v.o)) + '</div>' +
+    '<div class="bar"><span class="seal"><svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 2v16" stroke="#D9AE5B" stroke-width="3.2" stroke-linecap="round"/></svg></span>' +
+    '<span class="en">Mansub</span>' + mark(Object.assign({u: 3, hair: .3}, v.o)) + '</div>' +
+    '<div class="meta"><b>' + v.name + '</b><p>' + v.note + '</p></div></div>';
+}).join("");
+</script>
+</body>
+</html>
