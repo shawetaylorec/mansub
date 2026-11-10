@@ -335,7 +335,7 @@ a.btn{text-decoration:none}
           <button class="btn" id="paintLines" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Lines</button>
           <button class="btn" id="paintCircles" style="font-size:12px;padding:5px 9px"><span class="dot paintDot"></span>Circles</button>
         </div>
-        <div class="row"><span id="thickK">Thickness</span><input type="range" id="thick" min="1" max="40" value="3"><span class="num" id="thickV">3px</span></div>
+        <div class="row"><span id="thickK">Thickness</span><input type="range" id="thick" min="0" max="100" value="50"><span class="num" id="thickV">3px</span></div>
         <div class="row" style="justify-content:flex-start;gap:6px">
           <span style="margin-right:auto">Thickness all</span>
           <button class="btn" id="thickLines" style="font-size:12px;padding:5px 9px">Lines</button>
@@ -462,6 +462,7 @@ var S = {
   pending: null,              // an exact ratio waiting to be placed
   ghost: null,                // where the pointer last was, while placing
   thick: 3,
+  thickBase: 3,               // this sheet's default thickness: the slider's middle
   circMode: "diameter",
   maxDen: 8,
   labels: true
@@ -1625,21 +1626,38 @@ function selShape(){
   var o = S.sel && S.sel !== "alif" && S.sel !== "key" && S.sel !== "dots" ? byId(S.sel) : null;
   return o && (o.type === "line" || o.type === "circle") ? o : null;
 }
+/* The slider is calibrated to the sheet: its middle is the default
+   thickness for this image (S.thickBase). Left runs down to a tenth of it,
+   right up to four times it, each half on a log scale so every step is the
+   same proportion; fine, thin strokes get most of the travel and the top
+   stops well short of filling a circle in. */
+var THICK_LO = 10, THICK_HI = 4;
+function thickFromPos(p){
+  var t = (p - 50) / 50;
+  var w = S.thickBase * Math.pow(t < 0 ? THICK_LO : THICK_HI, t);
+  return Math.round(w * 100) / 100;
+}
+function posFromThick(w){
+  var r = Math.log(w / S.thickBase);
+  var t = r / Math.log(r < 0 ? THICK_LO : THICK_HI);
+  return Math.round(50 + 50 * Math.max(-1, Math.min(1, t)));
+}
+function fmtThick(w){ return (w < 10 ? w.toFixed(1) : Math.round(w)) + "px"; }
 function syncThick(){
   var o = selShape(), v = o ? (o.w || S.thick) : S.thick;
   var th = document.getElementById("thick");
-  th.value = Math.min(40, Math.max(1, Math.round(v)));
-  document.getElementById("thickV").textContent = th.value + "px";
+  th.value = posFromThick(v);
+  document.getElementById("thickV").textContent = fmtThick(v);
   document.getElementById("thickK").textContent = o ? "This " + o.type : "Thickness";
 }
 var thickSnapped = false;
 document.getElementById("thick").addEventListener("input", function(e){
-  var v = +e.target.value, o = selShape();
+  var v = thickFromPos(+e.target.value), o = selShape();
   if (o){
     if (!thickSnapped){ snapshot(); thickSnapped = true; }
     o.w = v;
   } else S.thick = v;
-  document.getElementById("thickV").textContent = v + "px";
+  document.getElementById("thickV").textContent = fmtThick(v);
   draw();
 });
 document.getElementById("thick").addEventListener("change", function(){ thickSnapped = false; });
@@ -1648,7 +1666,7 @@ function thickAll(type){
   var hit = S.shapes.filter(function(s){ return s.type === type; });
   if (!hit.length) return;
   snapshot();
-  var v = +document.getElementById("thick").value;
+  var v = thickFromPos(+document.getElementById("thick").value);
   hit.forEach(function(s){ s.w = v; });
   draw(); renderPanel();
 }
@@ -1713,11 +1731,8 @@ function loadImage(src, name){
     S.alif = null; S.shapes = []; S.key = null; S.dots = null; S.sel = null; undoStack = [];
     setAlifShown(true);
     S.rot = 0; renderRot();
-    S.thick = Math.max(2, Math.round(Math.hypot(im.naturalWidth, im.naturalHeight) / 700));
-    var th = document.getElementById("thick");
-    th.value = Math.min(40, S.thick);
-    S.thick = +th.value;
-    document.getElementById("thickV").textContent = S.thick + "px";
+    S.thick = S.thickBase = Math.max(2, Math.round(Math.hypot(im.naturalWidth, im.naturalHeight) / 700));
+    syncThick();
     document.getElementById("fname").textContent = name;
     document.getElementById("drop").hidden = true;
     setTool("alif");
@@ -1933,7 +1948,7 @@ function buildSample(){
     S.img = im;
     S.name = "Sample specimen — Amiri";
     S.isSample = true;
-    S.thick = 3;
+    S.thick = S.thickBase = 3;
     S.alif = {x1: alifX, y1: baseline - asc, x2: alifX, y2: baseline + desc};
     var L = alifLen();
     // The classical dā'ira: a circle whose diameter is the alif.

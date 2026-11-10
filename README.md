@@ -147,7 +147,9 @@ Thickness works the same way. With a line or circle selected, the **Thickness**
 slider in the Ink panel sets that shape alone; with nothing selected it sets the
 sheet's thickness, which the alif, the key, the dots and every shape not given
 its own follow. **Thickness all · Lines / Circles** gives every line, or every
-circle, the slider's current thickness.
+circle, the slider's current thickness. The slider starts in the middle at the
+sheet's default thickness; left goes down to a tenth of it, right up to four
+times it.
 The grid is black by default, since most scans are pale; it can be set to white or
 any of the fluorescents, and its weight is a slider.
 
