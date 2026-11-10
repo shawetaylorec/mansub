@@ -1552,7 +1552,7 @@ function armStamp(label, num, den, key){
   armedKey = key;
   S.sel = null;
   cv.style.cursor = "copy";
-  renderRatios(); updateStampHint(); renderFixtures(); updateCoach();
+  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); syncFlyShown();
   draw(); syncCtx();
 }
 
@@ -1560,7 +1560,7 @@ function cancelStamp(){
   if (!S.pending) return;
   S.pending = null; S.ghost = null; armedKey = null;
   cv.style.cursor = toolCursor();
-  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); draw();
+  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); syncFlyShown(); draw();
 }
 
 /* The key and the dots are placed the same way as an exact ratio: each
@@ -1864,12 +1864,17 @@ function setTool(t){
     stampKind = t;
     syncFly();
   }
-  $("flyRatio").hidden = !isRatioTool(t);
+  syncFlyShown();
   $("flyMeasure").hidden = t !== "measure";
   if (t !== "select" && S.img) hideStart();
   syncMeasure();
   cv.style.cursor = toolCursor();
   updateCoach();
+}
+/* The palette is for choosing a size; once one is armed it steps aside so
+   the whole sheet is free to place on. Esc brings it back for another size. */
+function syncFlyShown(){
+  $("flyRatio").hidden = !isRatioTool(S.tool) || !!(S.pending && !isFixture(S.pending.kind));
 }
 function syncFly(){
   var circle = stampKind === "circle";
@@ -1899,7 +1904,7 @@ function updateCoach(){
   if (S.pending){
     if (S.pending.kind === "key") msg = "Click to set the <b>key</b> down. It snaps to the grid. Esc cancels.";
     else if (S.pending.kind === "dots") msg = "Click to set the <b>dots</b> down. They snap into a grid column. Esc cancels.";
-    else msg = "Click to set down a <b>" + S.pending.label + " alif " + S.pending.kind + "</b>. Keep clicking for more; Esc stops.";
+    else msg = "Click to set down a <b>" + S.pending.label + " alif " + S.pending.kind + "</b>. Keep clicking for more; Esc picks another size.";
   } else if (S.tool === "alif"){
     msg = "Drag from the <b>top of an alif to its foot</b>. It stays upright; straighten the image to meet it.";
   } else if (isRatioTool(S.tool)){

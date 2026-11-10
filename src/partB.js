@@ -58,7 +58,7 @@ function armStamp(label, num, den, key){
   armedKey = key;
   S.sel = null;
   cv.style.cursor = "copy";
-  renderRatios(); updateStampHint(); renderFixtures(); updateCoach();
+  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); syncFlyShown();
   draw(); syncCtx();
 }
 
@@ -66,7 +66,7 @@ function cancelStamp(){
   if (!S.pending) return;
   S.pending = null; S.ghost = null; armedKey = null;
   cv.style.cursor = toolCursor();
-  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); draw();
+  renderRatios(); updateStampHint(); renderFixtures(); updateCoach(); syncFlyShown(); draw();
 }
 
 /* The key and the dots are placed the same way as an exact ratio: each

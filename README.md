@@ -50,8 +50,9 @@ actually fall?* and it comes first in Mansub.
 
 Choose **Circle** (`C`) or **Line** (`L`) on the left and a palette of ratios opens:
 eighths through two alifs, or type any fraction. Pick one and the shape follows the
-pointer until you click to set it down over a letter. The tool stays armed, so you
-can keep placing; `Esc` stops. Lines can be **Vertical** (the default) or
+pointer until you click to set it down over a letter. The palette closes while you
+place, so the whole sheet is clear, and the tool stays armed so you can keep placing;
+`Esc` brings the palette back for another size. Lines can be **Vertical** (the default) or
 **Horizontal**. Placed shapes are exact by construction, so their label reads 100%,
 and they are tagged *Placed* in the list.
 
@@ -119,7 +120,7 @@ by diameter or radius, and how fine a fraction to look for.
 | `K` `N` | place the key, the alif in dots |
 | `G` `S` | grid, snap |
 | `H` `T` | alif measure, labels |
-| `Esc` | stop placing, then deselect |
+| `Esc` | stop placing (the ratio palette returns), then put the tool down |
 | `Backspace` | delete the selection |
 | `Ctrl+Z` · `Ctrl+Shift+Z` | undo, redo |
 | Drag empty space, or hold `Space` | pan |
