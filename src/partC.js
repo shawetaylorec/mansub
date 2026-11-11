@@ -421,7 +421,7 @@ $("help").addEventListener("click", function(e){ if (e.target === $("help")) clo
 function hideStart(){ $("start").hidden = true; }
 $("startX").addEventListener("click", hideStart);
 $("startSample").addEventListener("click", hideStart);
-$("startOpen").addEventListener("click", function(){ $("fileIn").click(); });
+$("startZone").addEventListener("click", function(){ $("fileIn").click(); });
 $("start").addEventListener("click", function(e){ if (e.target === $("start")) hideStart(); });
 var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 document.querySelectorAll(".modkey").forEach(function(k){ k.textContent = isMac ? "⌘" : "Ctrl"; });
@@ -506,10 +506,12 @@ function hasFiles(e){ return e.dataTransfer && Array.prototype.indexOf.call(e.da
 ["dragenter","dragover"].forEach(function(t){
   window.addEventListener(t, function(e){
     if (!hasFiles(e)) return;
-    e.preventDefault(); stage.classList.add("over"); $("drop").hidden = false;
+    e.preventDefault();
+    if (!$("start").hidden){ $("startZone").classList.add("over"); return; }
+    stage.classList.add("over"); $("drop").hidden = false;
   });
 });
-function dropDone(){ stage.classList.remove("over"); if (S.img) $("drop").hidden = true; }
+function dropDone(){ stage.classList.remove("over"); $("startZone").classList.remove("over"); if (S.img) $("drop").hidden = true; }
 window.addEventListener("dragleave", function(e){ if (!e.relatedTarget) dropDone(); });
 window.addEventListener("drop", function(e){
   if (!hasFiles(e)) return;
