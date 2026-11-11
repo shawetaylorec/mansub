@@ -61,7 +61,9 @@ function mark(o){
   var T = o.T || 3, R = 1.6, r = o.ringW ? R - o.ringW : .62, TOP = 5.6, RL = -1, RR = 21.6;
   var TW = o.tw || 1, BW = o.bw || 1;
   // mimLow: م's loop drops so its foot sits on the ruler's bottom edge, not the top of the lower bar
-  var mim = [19.5, o.mimLow ? R - (o.bw || 1) : R], waw = [7.5, R];
+  var mim = [19.5, o.mimLow ? R - (o.bw || 1) : R], waw = [7.5, o.wawLow ? R - (o.bw || 1) : R];
+  // wawLow: و drops the same way, its tail and the two fingers beside it coming down with it
+  var wd = R - waw[1];
   var out = [], defs = [], front = [], occ = [];
   // a finger's whole shape, round end and body, for hiding the ruler behind it;
   // the two parts are kept as separate paths ('|') so their overlap doesn't cancel out
@@ -119,8 +121,8 @@ function mark(o){
 
   // the fingertips are the loops of م and و
   ring(mim); ring(waw);
-  var cx = waw[0], le = cx - R + hair / u / 2, ri = cx + R, tw = o.ringW || 1, ty = -2;
-  front.unshift('<path fill="' + LINE + '" d="M' + P(ri - tw, R) + 'H' + X(ri) + 'V' + Y(ty) + 'H' + X(le) + 'V' + Y(ty + tw) + 'H' + X(ri - tw) + 'Z"/>');
+  var cx = waw[0], le = cx - R + hair / u / 2, ri = cx + R, tw = o.ringW || 1, ty = -2 - wd;
+  front.unshift('<path fill="' + LINE + '" d="M' + P(ri - tw, waw[1]) + 'H' + X(ri) + 'V' + Y(ty) + 'H' + X(le) + 'V' + Y(ty + tw) + 'H' + X(ri - tw) + 'Z"/>');
 
   var e = R - hair / u / 2, len = o.len || 8.4;
   hairline(waw[0] - e, waw[1], waw[0] - e, waw[1] - len);
@@ -185,7 +187,7 @@ function mark(o){
     tip(c, f[2], d, f[3], o.fingers ? 4.4 : 0);
   });
   // and on و's side, two tips peeping below the rule
-  [[1, -3.7 - (BW - 1), R * .98], [2, -4.5 - (BW - 1), R * .92]].forEach(function(f){
+  [[1, -3.7 - (BW - 1) - wd, R * .98], [2, -4.5 - (BW - 1) - wd, R * .92]].forEach(function(f){
     tip([waw[0] - gap * f[0], f[1]], f[2], [0, -1], 5.2, 0);
   });
   // a fine curve fading as it leaves the tip
@@ -268,9 +270,10 @@ var base = {tint: true, crop: [25.6, -4.3, 5.8]};
 var T19 = {tw: .5, bw: .5, ticks: true}, T20 = Object.assign({mimClear: true}, T19), T12 = {tw: .3, bw: .7, nums: "west", ticks: true, fingers: true, nails: true}, low = {crop: [25.6, -6.0, 5.8]};
 var W27 = Object.assign({thumbs: 2, occlude: true}, T20, low);
 var W30 = Object.assign({T: 1.8, tickScale: true, mimLow: true}, W27);
+var W33 = Object.assign({wawLow: true}, W30);
 var S = [
   {h: "In use", v: [
-    {n: 32, name: "Mansub", o: W30, note: "Short teeth (1.8 of the ruler's 5.6) with ن's dot above its tooth, minor ticks in step and none under م, a lower edge as thin as the teeth, م's loop resting on the ruler's bottom edge, و at full weight, a thumb on each hand cropped across its nail, and the fingers in front of the ruler. The SVGs in partA.html (top bar u 3.1, start prompt u 11, help sheet u 7.5) and og.png (u 40) are generated from this."}
+    {n: 33, name: "Mansub", o: W33, note: "Short teeth (1.8 of the ruler's 5.6) with ن's dot above its tooth, minor ticks in step and none under م, a lower edge as thin as the teeth, the loops of م and و both resting on the ruler's bottom edge, و at full weight, a thumb on each hand cropped across its nail, and the fingers in front of the ruler. The SVGs in partA.html (top bar u 3.1, start prompt u 11, help sheet u 7.5) and og.png (u 40) are generated from this."}
   ]}
 ];
 document.getElementById("sections").innerHTML = S.map(function(s){
